@@ -8,28 +8,26 @@ from Productos.serializers import (
     ProductoSerializer, ProductoListSerializer,
     ProductoCreateUpdateSerializer
 )
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema
+from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, requiere_grupos, manejar_errores_db
 
 
 class ProductoListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
     def get(self, request):
         """
         Lista todos los productos activos.
-        Disponible para todos los usuarios autenticados.
         """
-        productos = Producto.objects.filter(estado=True)
+        stock_bajo = request.query_params.get('stock_bajo')
+        if stock_bajo and stock_bajo.lower() == 'true':
+            productos = Producto.objects.con_stock_bajo()
+        else:
+            productos = Producto.activos.all()
 
         categoria_id = request.query_params.get('categoria')
         if categoria_id:
             productos = productos.filter(categoria_id=categoria_id)
-
-        stock_bajo = request.query_params.get('stock_bajo')
-        if stock_bajo and stock_bajo.lower() == 'true':
-            productos = [p for p in productos if p.stock_bajo]
-            serializer = ProductoListSerializer(productos, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
 
         buscar = request.query_params.get('buscar')
         if buscar:
@@ -59,6 +57,8 @@ class ProductoListCreateAPIView(APIView):
 class ProductoDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
+    @manejar_errores_db
     def get(self, request, pk):
         """
         Obtiene el detalle de un producto.
@@ -71,6 +71,7 @@ class ProductoDetailAPIView(APIView):
             return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     @requiere_admin_sistema
+    @manejar_errores_db
     def put(self, request, pk):
         """
         Actualiza un producto.
@@ -95,14 +96,14 @@ class ProductoDetailAPIView(APIView):
             return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     @requiere_admin_sistema
+    @manejar_errores_db
     def delete(self, request, pk):
         """
         Desactiva un producto (soft delete).
         """
         try:
             producto = Producto.objects.get(pk=pk)
-            producto.estado = False
-            producto.save()
+            producto.soft_delete()
             return Response({
                 'mensaje': 'Producto desactivado exitosamente'
             }, status=status.HTTP_200_OK)
@@ -116,20 +117,15 @@ class ProductoAlertasStockAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @requiere_admin_sistema
     def get(self, request):
         """
         Lista productos con stock bajo.
         """
-        if not request.user.es_admin_sistema:
-            return Response({
-                'error': 'Solo administradores del sistema pueden ver alertas de stock.'
-            }, status=status.HTTP_403_FORBIDDEN)
-
-        productos = Producto.objects.filter(estado=True)
-        productos_con_alerta = [p for p in productos if p.stock_bajo]
+        productos_con_alerta = Producto.objects.con_stock_bajo()
 
         serializer = ProductoSerializer(productos_con_alerta, many=True)
         return Response({
-            'total_alertas': len(productos_con_alerta),
+            'total_alertas': productos_con_alerta.count(),
             'productos': serializer.data
         }, status=status.HTTP_200_OK)

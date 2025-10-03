@@ -5,7 +5,8 @@ from Base.models import BaseModel
 class Empresa(BaseModel):
     nombre = models.CharField(max_length=200, verbose_name='Nombre de la empresa')
     sector = models.CharField(max_length=100, verbose_name='Sector')
-    nit = models.CharField(max_length=50, unique=True, verbose_name='NIT')
+    nit = models.CharField(max_length=20, unique=True, verbose_name='NIT')
+    nombre_contacto = models.CharField(max_length=200, default='Sin contacto', verbose_name='Nombre del contacto')
     correo_contacto = models.EmailField(verbose_name='Correo de contacto')
     pagar_despues = models.BooleanField(default=False, verbose_name='¿Autorizado para pago diferido?')
 
@@ -15,9 +16,6 @@ class Empresa(BaseModel):
         verbose_name_plural = 'Empresas'
         ordering = ['nombre']
         permissions = (
-            ('ver_todas_empresas', 'Puede ver todas las empresas'),
-            ('crear_empresa', 'Puede crear empresas'),
-            ('editar_empresa', 'Puede editar empresas'),
             ('autorizar_pago_diferido', 'Puede autorizar pago diferido'),
         )
 
@@ -36,11 +34,6 @@ class Area(BaseModel):
         verbose_name_plural = 'Áreas'
         ordering = ['nombre']
         unique_together = ['nombre', 'empresa']
-        permissions = (
-            ('ver_areas_empresa', 'Puede ver áreas de su empresa'),
-            ('crear_area', 'Puede crear áreas'),
-            ('editar_area', 'Puede editar áreas'),
-        )
 
     def __str__(self):
         return f"{self.nombre} - {self.empresa.nombre}".title()

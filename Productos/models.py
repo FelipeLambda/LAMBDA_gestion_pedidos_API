@@ -1,5 +1,6 @@
 from django.db import models
-from Base.models import BaseModel
+from Base.models import BaseModel, ActiveManager
+
 
 class Categoria(BaseModel):
     nombre = models.CharField(max_length=100, unique=True, verbose_name='Nombre de la categoría')
@@ -10,14 +11,17 @@ class Categoria(BaseModel):
         verbose_name = 'Categoría'
         verbose_name_plural = 'Categorías'
         ordering = ['nombre']
-        permissions = (
-            ('ver_categorias', 'Puede ver categorías'),
-            ('crear_categoria', 'Puede crear categorías'),
-            ('editar_categoria', 'Puede editar categorías'),
-        )
 
     def __str__(self):
         return f"{self.nombre}".title()
+
+
+class ProductoManager(models.Manager):
+    """Manager personalizado para Producto con consultas específicas"""
+
+    def con_stock_bajo(self):
+        """Retorna productos activos con stock por debajo del umbral mínimo"""
+        return self.filter(estado=True, stock_disponible__lt=models.F('umbral_minimo'))
 
 
 class Producto(BaseModel):
@@ -29,18 +33,14 @@ class Producto(BaseModel):
     stock_disponible = models.IntegerField(default=0, verbose_name='Stock disponible')
     umbral_minimo = models.IntegerField(default=10, verbose_name='Umbral mínimo de stock')
 
+    objects = ProductoManager()
+    activos = ActiveManager()
+
     class Meta:
         db_table = 'productos'
         verbose_name = 'Producto'
         verbose_name_plural = 'Productos'
         ordering = ['nombre']
-        permissions = (
-            ('ver_productos', 'Puede ver productos'),
-            ('crear_producto', 'Puede crear productos'),
-            ('editar_producto', 'Puede editar productos'),
-            ('gestionar_catalogo', 'Puede gestionar el catálogo completo'),
-            ('ver_alertas_stock', 'Puede ver alertas de stock bajo'),
-        )
 
     def __str__(self):
         return f"{self.sku} - {self.nombre}".title()

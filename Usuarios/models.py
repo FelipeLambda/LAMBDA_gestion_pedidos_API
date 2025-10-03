@@ -15,15 +15,35 @@ class UsuarioManager(BaseUserManager):
         usuario.save(using=self._db)
         return usuario
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, email, nombre, cargo=None, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('es_admin_sistema', True)
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('El superusuario debe tener is_staff=True')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('El superusuario debe tener is_superuser=True')
+
+        # Campos obligatorios para superusuario
+        extra_fields['nombre'] = nombre
+        if cargo:
+            extra_fields['cargo'] = cargo
+
+        # Manejar empresa_id y area_id si vienen en extra_fields
+        empresa_id = extra_fields.pop('empresa_id', None)
+        area_id = extra_fields.pop('area_id', None)
+
+        if empresa_id:
+            try:
+                extra_fields['empresa'] = Empresa.objects.get(pk=empresa_id)
+            except Empresa.DoesNotExist:
+                raise ValueError(f'Empresa con ID {empresa_id} no existe')
+
+        if area_id:
+            try:
+                extra_fields['area'] = Area.objects.get(pk=area_id)
+            except Area.DoesNotExist:
+                raise ValueError(f'Área con ID {area_id} no existe')
 
         return self.create_user(email, password, **extra_fields)
 
@@ -31,14 +51,9 @@ class UsuarioManager(BaseUserManager):
 class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
     email = models.EmailField(unique=True, verbose_name='Correo electrónico')
     nombre = models.CharField(max_length=200, verbose_name='Nombre completo')
-    cargo = models.CharField(max_length=100, blank=True, null=True, verbose_name='Cargo')
+    cargo = models.CharField(max_length=100, default='Sin cargo', verbose_name='Cargo')
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='usuarios', null=True, blank=True, verbose_name='Empresa')
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, related_name='usuarios', null=True, blank=True, verbose_name='Área')
-    es_admin_sistema = models.BooleanField(default=False, verbose_name='¿Es admin del sistema?')
-    es_admin_empresa = models.BooleanField(default=False, verbose_name='¿Es admin de empresa?')
-    es_validador_financiero = models.BooleanField(default=False, verbose_name='¿Es validador financiero?')
-    es_validador_abastecimiento = models.BooleanField(default=False, verbose_name='¿Es validador de abastecimiento?')
-    es_solicitante = models.BooleanField(default=False, verbose_name='¿Puede crear solicitudes?')
     is_staff = models.BooleanField(default=False, verbose_name='¿Es staff?')
     is_active = models.BooleanField(default=True, verbose_name='¿Está activo?')
     date_joined = models.DateTimeField(default=timezone.now, verbose_name='Fecha de registro')
@@ -48,20 +63,33 @@ class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
     objects = UsuarioManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['nombre']
+    REQUIRED_FIELDS = ['nombre', 'cargo']
 
     class Meta:
         db_table = 'usuarios'
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
         ordering = ['-date_joined']
-        permissions = (
-            ('ver_usuarios_empresa', 'Puede ver usuarios de su empresa'),
-            ('crear_usuario_empresa', 'Puede crear usuarios en su empresa'),
-            ('editar_usuario_empresa', 'Puede editar usuarios de su empresa'),
-            ('asignar_permisos_validador', 'Puede asignar permisos de validador'),
-            ('gestionar_todos_usuarios', 'Puede gestionar todos los usuarios del sistema'),
-        )
 
     def __str__(self):
         return f"{self.nombre} ({self.email})".title()
+
+    def validar_token_activacion(self, token):
+
+        if not self.token_activacion:
+            return False, 'No hay token de activación para este usuario.'
+
+        if self.token_activacion != token:
+            return False, 'Token de activación inválido.'
+
+        if self.token_expiracion and timezone.now() > self.token_expiracion:
+            return False, 'El token de activación ha expirado.'
+
+        return True, None
+
+    def activar_cuenta(self):
+        
+        self.is_active = True
+        self.token_activacion = None
+        self.token_expiracion = None
+        self.save(update_fields=['is_active', 'token_activacion', 'token_expiracion'])

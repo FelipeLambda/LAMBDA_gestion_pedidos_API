@@ -5,7 +5,7 @@ from .models import Empresa, Area
 class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
-        fields = ['id', 'nombre', 'sector', 'nit', 'correo_contacto', 'pagar_despues', 'estado', 'fecha_creacion', 'fecha_actualizacion']
+        fields = ['id', 'nombre', 'sector', 'nit', 'nombre_contacto', 'correo_contacto', 'pagar_despues', 'estado', 'fecha_creacion', 'fecha_actualizacion']
         read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
 

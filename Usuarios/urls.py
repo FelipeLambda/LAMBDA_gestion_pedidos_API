@@ -1,14 +1,14 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    RegistroUsuarioAPIView, LoginAPIView, LogoutAPIView,
+    LoginAPIView, LogoutAPIView,
     PerfilUsuarioAPIView, CambioPasswordAPIView, RecuperarPasswordAPIView,
     ResetPasswordAPIView, ActivarUsuarioAPIView,
     UsuarioListCreateAPIView, UsuarioDetailAPIView
 )
 
 urlpatterns = [
-    path('api/auth/registro', RegistroUsuarioAPIView.as_view(), name='registro'),
+    # path('api/auth/registro', RegistroUsuarioAPIView.as_view(), name='registro'),  # ← ELIMINADO: Solo admin puede crear usuarios
     path('api/auth/login', LoginAPIView.as_view(), name='login'),
     path('api/auth/logout', LogoutAPIView.as_view(), name='logout'),
     path('api/auth/actualizar_token', TokenRefreshView.as_view(), name='actualizarToken'),

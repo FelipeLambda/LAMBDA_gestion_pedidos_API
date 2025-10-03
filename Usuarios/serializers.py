@@ -7,17 +7,19 @@ from .models import Usuario
 class UsuarioSerializer(serializers.ModelSerializer):
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
     area_nombre = serializers.CharField(source='area.nombre', read_only=True)
+    grupos = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
         fields = [
             'id', 'email', 'nombre', 'cargo', 'empresa', 'empresa_nombre',
-            'area', 'area_nombre', 'es_admin_sistema', 'es_admin_empresa',
-            'es_validador_financiero', 'es_validador_abastecimiento', 'es_solicitante',
+            'area', 'area_nombre', 'grupos',
             'is_active', 'date_joined', 'fecha_creacion', 'fecha_actualizacion'
         ]
         read_only_fields = ['id', 'date_joined', 'fecha_creacion', 'fecha_actualizacion']
 
+    def get_grupos(self, obj):
+        return [grupo.name for grupo in obj.groups.all()]
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

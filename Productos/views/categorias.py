@@ -4,16 +4,17 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Productos.models import Categoria
 from Productos.serializers import CategoriaSerializer
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema
+from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, requiere_grupos, manejar_errores_db
 
 class CategoriaListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
     def get(self, request):
         """
         Lista todas las categorías activas.
         """
-        categorias = Categoria.objects.filter(estado=True)
+        categorias = Categoria.activos.all()
         serializer = CategoriaSerializer(categorias, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -35,6 +36,8 @@ class CategoriaListCreateAPIView(APIView):
 class CategoriaDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
+    @manejar_errores_db
     def get(self, request, pk):
         """
         Obtiene el detalle de una categoría.
@@ -47,6 +50,7 @@ class CategoriaDetailAPIView(APIView):
             return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
     @requiere_admin_sistema
+    @manejar_errores_db
     def put(self, request, pk):
         """
         Actualiza una categoría.
@@ -65,14 +69,14 @@ class CategoriaDetailAPIView(APIView):
             return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
     @requiere_admin_sistema
+    @manejar_errores_db
     def delete(self, request, pk):
         """
         Desactiva una categoría (soft delete).
         """
         try:
             categoria = Categoria.objects.get(pk=pk)
-            categoria.estado = False
-            categoria.save()
+            categoria.soft_delete()
             return Response({
                 'mensaje': 'Categoría desactivada exitosamente'
             }, status=status.HTTP_200_OK)

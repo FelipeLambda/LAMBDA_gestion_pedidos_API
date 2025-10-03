@@ -15,18 +15,9 @@ from Usuarios.serializers import (
 )
 
 
-class RegistroUsuarioAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = RegistroUsuarioSerializer(data=request.data)
-        if serializer.is_valid():
-            usuario = serializer.save()
-            return Response({
-                'mensaje': 'Usuario registrado exitosamente',
-                'usuario': UsuarioSerializer(usuario).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# RegistroUsuarioAPIView ELIMINADA
+# Solo los administradores pueden crear usuarios mediante /api/usuarios
+# Los usuarios nuevos activan su cuenta mediante /api/auth/activar_cuenta con el token recibido por email
 
 
 class LoginAPIView(APIView):

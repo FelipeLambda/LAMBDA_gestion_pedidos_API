@@ -2,20 +2,17 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-
 from Empresas.models import Area
 from Empresas.serializers import AreaSerializer
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_empresa
+from LAMBDA_gestion_pedidos_API.utils import requiere_admin_empresa, FiltradoEmpresaMixin, manejar_errores_db
 
 
-class AreaListCreateAPIView(APIView):
+class AreaListCreateAPIView(FiltradoEmpresaMixin, APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_admin_empresa
     def get(self, request):
-        if request.user.es_admin_sistema:
-            areas = Area.objects.filter(estado=True)
-        else:
-            areas = Area.objects.filter(empresa=request.user.empresa, estado=True)
+        areas = self.filtrar_por_empresa(request, Area.activos.all())
         serializer = AreaSerializer(areas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -34,6 +31,8 @@ class AreaListCreateAPIView(APIView):
 class AreaDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @requiere_admin_empresa
+    @manejar_errores_db
     def get(self, request, pk):
         try:
             area = Area.objects.get(pk=pk)
@@ -43,6 +42,7 @@ class AreaDetailAPIView(APIView):
             return Response({'error': 'Área no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
     @requiere_admin_empresa
+    @manejar_errores_db
     def put(self, request, pk):
         try:
             area = Area.objects.get(pk=pk)
