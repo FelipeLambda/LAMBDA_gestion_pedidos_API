@@ -44,6 +44,7 @@ DJANGO_APPS = [
 
 LOCAL_APPS = [
     'Base',
+    'Empresas',
     'Usuarios',
     'Productos',
 ]

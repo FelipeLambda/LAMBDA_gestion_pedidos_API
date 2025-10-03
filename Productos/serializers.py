@@ -6,8 +6,8 @@ class CategoriaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Categoria
-        fields = ['id', 'nombre', 'descripcion', 'estado', 'total_productos', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'nombre', 'descripcion', 'estado', 'total_productos', 'fecha_creacion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
     def get_total_productos(self, obj):
         """
@@ -26,9 +26,9 @@ class ProductoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nombre', 'descripcion', 'sku', 'precio', 'categoria', 'categoria_nombre',
             'stock_disponible', 'umbral_minimo', 'stock_bajo', 'stock_reservado',
-            'estado', 'created_at', 'updated_at'
+            'estado', 'fecha_creacion', 'fecha_actualizacion'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'stock_bajo', 'stock_reservado']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion', 'stock_bajo', 'stock_reservado']
 
 
 class ProductoListSerializer(serializers.ModelSerializer):

@@ -1,22 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import Usuario, Empresa, Area
-
-class EmpresaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Empresa
-        fields = ['id', 'nombre', 'sector', 'nit', 'correo_contacto', 'pagar_despues', 'estado', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class AreaSerializer(serializers.ModelSerializer):
-    empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
-
-    class Meta:
-        model = Area
-        fields = ['id', 'nombre', 'descripcion', 'empresa', 'empresa_nombre', 'estado', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+from .models import Usuario
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -29,9 +14,9 @@ class UsuarioSerializer(serializers.ModelSerializer):
             'id', 'email', 'nombre', 'cargo', 'empresa', 'empresa_nombre',
             'area', 'area_nombre', 'es_admin_sistema', 'es_admin_empresa',
             'es_validador_financiero', 'es_validador_abastecimiento', 'es_solicitante',
-            'is_active', 'date_joined', 'created_at', 'updated_at'
+            'is_active', 'date_joined', 'fecha_creacion', 'fecha_actualizacion'
         ]
-        read_only_fields = ['id', 'date_joined', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'date_joined', 'fecha_creacion', 'fecha_actualizacion']
 
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):

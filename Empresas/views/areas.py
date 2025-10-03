@@ -2,8 +2,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from Usuarios.models import Area
-from Usuarios.serializers import AreaSerializer
+
+from Empresas.models import Area
+from Empresas.serializers import AreaSerializer
 from LAMBDA_gestion_pedidos_API.utils import requiere_admin_empresa
 
 

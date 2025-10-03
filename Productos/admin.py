@@ -3,7 +3,7 @@ from .models import Categoria, Producto
 
 @admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'estado', 'created_at']
+    list_display = ['nombre', 'estado', 'fecha_creacion']
     list_filter = ['estado']
     search_fields = ['nombre', 'descripcion']
     ordering = ['nombre']
@@ -11,11 +11,11 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ['sku', 'nombre', 'categoria', 'precio', 'stock_disponible', 'umbral_minimo', 'estado', 'created_at']
+    list_display = ['sku', 'nombre', 'categoria', 'precio', 'stock_disponible', 'umbral_minimo', 'estado', 'fecha_creacion']
     list_filter = ['estado', 'categoria']
     search_fields = ['nombre', 'sku', 'descripcion']
     ordering = ['nombre']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['fecha_creacion', 'fecha_actualizacion']
 
     fieldsets = (
         ('Información básica', {
@@ -28,7 +28,7 @@ class ProductoAdmin(admin.ModelAdmin):
             'fields': ('estado',)
         }),
         ('Auditoría', {
-            'fields': ('created_at', 'updated_at'),
+            'fields': ('fecha_creacion', 'fecha_actualizacion'),
             'classes': ('collapse',)
         }),
     )
