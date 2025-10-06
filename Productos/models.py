@@ -13,7 +13,7 @@ class Categoria(BaseModel):
         ordering = ['nombre']
 
     def __str__(self):
-        return f"{self.nombre}".title()
+        return self.nombre.title()
 
 
 class ProductoManager(models.Manager):

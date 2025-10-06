@@ -2,10 +2,7 @@ from django.contrib.auth.management.commands import createsuperuser
 from django.core.management import CommandError
 from Empresas.models import Empresa, Area
 
-
 class Command(createsuperuser.Command):
-    help = 'Crea un superusuario con campos adicionales: cargo, empresa, area'
-
     def add_arguments(self, parser):
         super().add_arguments(parser)
         parser.add_argument(
@@ -34,9 +31,7 @@ class Command(createsuperuser.Command):
         empresa_id = options.get('empresa')
         area_id = options.get('area')
 
-        # Si es modo interactivo y no se pasaron por parámetro
         if options.get('interactive'):
-            # Mostrar empresas disponibles
             empresas = Empresa.activos.all()
             if not empresas.exists():
                 raise CommandError('No hay empresas activas. Crea una empresa primero.')
@@ -51,13 +46,11 @@ class Command(createsuperuser.Command):
                 except ValueError:
                     raise CommandError('ID de empresa inválido')
 
-            # Verificar que la empresa exista
             try:
                 empresa = Empresa.objects.get(pk=empresa_id)
             except Empresa.DoesNotExist:
                 raise CommandError(f'Empresa con ID {empresa_id} no existe')
 
-            # Mostrar áreas de esa empresa
             areas = Area.activos.filter(empresa=empresa)
             if not areas.exists():
                 raise CommandError(f'No hay áreas activas en la empresa {empresa.nombre}. Crea un área primero.')
@@ -72,16 +65,13 @@ class Command(createsuperuser.Command):
                 except ValueError:
                     raise CommandError('ID de área inválido')
 
-            # Verificar que el área exista
             try:
                 area = Area.objects.get(pk=area_id)
             except Area.DoesNotExist:
                 raise CommandError(f'Área con ID {area_id} no existe')
 
-        # Guardar los valores en las opciones para que se pasen al create_superuser
         options['empresa_id'] = empresa_id
         options['area_id'] = area_id
         options['cargo'] = cargo
 
-        # Llamar al comando padre
         super().handle(*args, **options)

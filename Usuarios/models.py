@@ -24,12 +24,10 @@ class UsuarioManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('El superusuario debe tener is_superuser=True')
 
-        # Campos obligatorios para superusuario
         extra_fields['nombre'] = nombre
         if cargo:
             extra_fields['cargo'] = cargo
 
-        # Manejar empresa_id y area_id si vienen en extra_fields
         empresa_id = extra_fields.pop('empresa_id', None)
         area_id = extra_fields.pop('area_id', None)
 

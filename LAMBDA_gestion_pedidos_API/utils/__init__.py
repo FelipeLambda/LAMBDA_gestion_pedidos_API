@@ -4,8 +4,8 @@ from .decoradores import (
     requiere_validador_financiero,
     requiere_validador_abastecimiento,
     requiere_solicitante,
-    requiere_permiso,
     requiere_grupos,
+    requiere_permiso,
     manejar_errores_db
 )
 from .mixins import FiltradoEmpresaMixin
@@ -17,8 +17,8 @@ __all__ = [
     'requiere_validador_financiero',
     'requiere_validador_abastecimiento',
     'requiere_solicitante',
-    'requiere_permiso',
     'requiere_grupos',
+    'requiere_permiso',
     'manejar_errores_db',
     'FiltradoEmpresaMixin',
     'StandardPagination',

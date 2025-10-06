@@ -1,7 +1,6 @@
 from django.db import models
 from Base.models import BaseModel
 
-
 class Empresa(BaseModel):
     nombre = models.CharField(max_length=200, verbose_name='Nombre de la empresa')
     sector = models.CharField(max_length=100, verbose_name='Sector')
@@ -15,12 +14,13 @@ class Empresa(BaseModel):
         verbose_name = 'Empresa'
         verbose_name_plural = 'Empresas'
         ordering = ['nombre']
-        permissions = (
+        permissions = [
             ('autorizar_pago_diferido', 'Puede autorizar pago diferido'),
-        )
+            ('ver_todas_empresas', 'Puede ver todas las empresas'),
+        ]
 
     def __str__(self):
-        return f"{self.nombre}".title()
+        return self.nombre.title()
 
 
 class Area(BaseModel):

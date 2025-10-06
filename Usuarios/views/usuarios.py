@@ -28,14 +28,12 @@ class UsuarioListCreateAPIView(FiltradoEmpresaMixin, APIView):
         if serializer.is_valid():
             usuario = serializer.save()
 
-            # Generar token de activación
             token = secrets.token_urlsafe(32)
             usuario.token_activacion = token
             usuario.token_expiracion = timezone.now() + timedelta(days=7)
             usuario.is_active = False
             usuario.save()
 
-            # Enviar email de bienvenida
             EmailService.enviar_email_activacion(usuario, token)
 
             return Response({
