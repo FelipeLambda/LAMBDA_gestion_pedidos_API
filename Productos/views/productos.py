@@ -1,4 +1,4 @@
-from django.db import models as django_models
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,13 +8,12 @@ from Productos.serializers import (
     ProductoSerializer, ProductoListSerializer,
     ProductoCreateUpdateSerializer
 )
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, requiere_grupos, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, manejar_errores_db
 
 
 class ProductoListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
     def get(self, request):
         """
         Lista todos los productos activos.
@@ -32,8 +31,8 @@ class ProductoListCreateAPIView(APIView):
         buscar = request.query_params.get('buscar')
         if buscar:
             productos = productos.filter(
-                django_models.Q(nombre__icontains=buscar) |
-                django_models.Q(sku__icontains=buscar)
+                Q(nombre__icontains=buscar) |
+                Q(sku__icontains=buscar)
             )
 
         serializer = ProductoListSerializer(productos, many=True)
@@ -57,7 +56,6 @@ class ProductoListCreateAPIView(APIView):
 class ProductoDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema', 'Validador Financiero', 'Validador Abastecimiento')
     @manejar_errores_db
     def get(self, request, pk):
         """

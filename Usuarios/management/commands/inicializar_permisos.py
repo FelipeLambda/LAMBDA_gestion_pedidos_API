@@ -16,52 +16,45 @@ class Command(BaseCommand):
             solicitante = Group.objects.get(name='Solicitante')
 
             todos_permisos = Permission.objects.filter(
-                content_type__app_label__in=['Empresas', 'Usuarios', 'Productos', 'Base']
+                content_type__app_label__in=['Empresas', 'Usuarios', 'Productos', 'Solicitudes', 'Base']
             )
             admin_sistema.permissions.set(todos_permisos)
             self.stdout.write(
                 self.style.SUCCESS(f'[OK] Admin Sistema: {todos_permisos.count()} permisos asignados')
             )
 
-            permisos_admin_empresa = Permission.objects.filter(
-                codename__in=[
-                    'add_usuario', 'change_usuario', 'view_usuario',
-                    'add_area', 'change_area', 'view_area',
-                    'view_empresa',
-                    'view_producto', 'view_categoria',
-                    'autorizar_pago_diferido',
-                ]
-            )
-            admin_empresa.permissions.set(permisos_admin_empresa)
+            admin_empresa.permissions.clear()
             self.stdout.write(
-                self.style.SUCCESS(f'[OK] Admin Empresa: {permisos_admin_empresa.count()} permisos asignados')
+                self.style.SUCCESS(f'[OK] Admin Empresa: sin permisos custom (acceso controlado por grupo)')
             )
 
-            permisos_validadores = Permission.objects.filter(
+            permisos_validador_financiero = Permission.objects.filter(
                 codename__in=[
-                    'view_usuario', 'view_empresa', 'view_area',
-                    'view_producto', 'view_categoria',
+                    'validar_financiero',
                 ]
             )
-
-            for validador in [validador_financiero, validador_abastecimiento]:
-                validador.permissions.set(permisos_validadores)
-                self.stdout.write(
-                    self.style.SUCCESS(f'[OK] {validador.name}: {permisos_validadores.count()} permisos asignados')
-                )
-
-            permisos_solicitante = Permission.objects.filter(
-                codename__in=[
-                    'view_producto', 'view_categoria',
-                ]
-            )
-            solicitante.permissions.set(permisos_solicitante)
+            validador_financiero.permissions.set(permisos_validador_financiero)
             self.stdout.write(
-                self.style.SUCCESS(f'[OK] Solicitante: {permisos_solicitante.count()} permisos asignados')
+                self.style.SUCCESS(f'[OK] Validador Financiero: {permisos_validador_financiero.count()} permisos asignados')
+            )
+
+            permisos_validador_abastecimiento = Permission.objects.filter(
+                codename__in=[
+                    'validar_abastecimiento',
+                ]
+            )
+            validador_abastecimiento.permissions.set(permisos_validador_abastecimiento)
+            self.stdout.write(
+                self.style.SUCCESS(f'[OK] Validador Abastecimiento: {permisos_validador_abastecimiento.count()} permisos asignados')
+            )
+
+            solicitante.permissions.clear()
+            self.stdout.write(
+                self.style.SUCCESS(f'[OK] Solicitante: sin permisos (acceso controlado por grupo)')
             )
 
             self.stdout.write(
-                self.style.SUCCESS('\nPermisos asignados exitosamente a todos los grupos!')
+                self.style.SUCCESS('\nPermisos custom asignados exitosamente a todos los grupos!')
             )
 
         except Group.DoesNotExist as e:

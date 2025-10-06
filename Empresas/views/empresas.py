@@ -26,6 +26,9 @@ class EmpresaListCreateAPIView(APIView):
         if serializer.is_valid():
             empresa = serializer.save()
             token = secrets.token_urlsafe(32)
+            empresa.token_activacion = token
+            empresa.token_expiracion = timezone.now() + timedelta(days=7)
+            empresa.save()
             EmailService.enviar_email_activacion_empresa(empresa, token)
 
             return Response({

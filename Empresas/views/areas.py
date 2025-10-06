@@ -56,3 +56,15 @@ class AreaDetailAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Area.DoesNotExist:
             return Response({'error': 'Área no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+
+    @requiere_admin_empresa
+    @manejar_errores_db
+    def delete(self, request, pk):
+        try:
+            area = Area.objects.get(pk=pk)
+            area.soft_delete()
+            return Response({
+                'mensaje': 'Área desactivada exitosamente'
+            }, status=status.HTTP_200_OK)
+        except Area.DoesNotExist:
+            return Response({'error': 'Área no encontrada'}, status=status.HTTP_404_NOT_FOUND)

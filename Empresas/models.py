@@ -8,16 +8,14 @@ class Empresa(BaseModel):
     nombre_contacto = models.CharField(max_length=200, default='Sin contacto', verbose_name='Nombre del contacto')
     correo_contacto = models.EmailField(verbose_name='Correo de contacto')
     pagar_despues = models.BooleanField(default=False, verbose_name='¿Autorizado para pago diferido?')
+    token_activacion = models.CharField(max_length=100, blank=True, null=True, verbose_name='Token de activación')
+    token_expiracion = models.DateTimeField(blank=True, null=True, verbose_name='Expiración del token')
 
     class Meta:
         db_table = 'empresas'
         verbose_name = 'Empresa'
         verbose_name_plural = 'Empresas'
         ordering = ['nombre']
-        permissions = [
-            ('autorizar_pago_diferido', 'Puede autorizar pago diferido'),
-            ('ver_todas_empresas', 'Puede ver todas las empresas'),
-        ]
 
     def __str__(self):
         return self.nombre.title()
