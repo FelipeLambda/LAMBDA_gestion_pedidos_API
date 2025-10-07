@@ -9,20 +9,23 @@ from Productos.models import Producto
 class SolicitudManager(models.Manager):
     """Manager personalizado para Solicitud con consultas específicas"""
 
-    def pendientes(self):
-        return self.filter(estado=True, estado_solicitud='PENDIENTE')
+    def pendientes_abastecimiento(self):
+        return self.filter(estado=True, estado_solicitud='PENDIENTE_ABASTECIMIENTO')
+
+    def pendientes_finanzas(self):
+        return self.filter(estado=True, estado_solicitud='PENDIENTE_FINANZAS')
 
     def aprobadas(self):
         return self.filter(estado=True, estado_solicitud='APROBADA')
 
-    def validadas_financiero(self):
-        return self.filter(estado=True, estado_solicitud='VALIDADA_FINANCIERO')
+    def rechazadas(self):
+        return self.filter(estado=True, estado_solicitud='RECHAZADA')
 
 
 class Solicitud(BaseModel):
     ESTADOS_SOLICITUD = [
-        ('PENDIENTE', 'Pendiente'),
-        ('VALIDADA_FINANCIERO', 'Validada por Financiero'),
+        ('PENDIENTE_ABASTECIMIENTO', 'Pendiente de Validación Abastecimiento'),
+        ('PENDIENTE_FINANZAS', 'Pendiente de Validación Financiera'),
         ('APROBADA', 'Aprobada'),
         ('RECHAZADA', 'Rechazada'),
     ]
@@ -50,7 +53,7 @@ class Solicitud(BaseModel):
     estado_solicitud = models.CharField(
         max_length=30,
         choices=ESTADOS_SOLICITUD,
-        default='PENDIENTE',
+        default='PENDIENTE_ABASTECIMIENTO',
         verbose_name='Estado de la solicitud'
     )
     observaciones = models.TextField(
@@ -127,12 +130,10 @@ class Solicitud(BaseModel):
 
     @property
     def esta_aprobada(self):
-        """Verifica si la solicitud está completamente aprobada"""
         return self.estado_solicitud == 'APROBADA'
 
     @property
     def puede_convertirse_a_pedido(self):
-        """Verifica si la solicitud puede convertirse en pedido"""
         return self.esta_aprobada
 
 
@@ -176,7 +177,6 @@ class DetalleSolicitud(BaseModel):
 
     @property
     def subtotal(self):
-        """Calcula el subtotal del detalle"""
         return self.cantidad * self.precio_unitario
 
     def save(self, *args, **kwargs):

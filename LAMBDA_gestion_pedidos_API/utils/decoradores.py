@@ -93,24 +93,3 @@ def requiere_admin_empresa(vista_metodo):
     """
     return requiere_grupos('Admin Empresa', 'Admin Sistema')(vista_metodo)
 
-
-def requiere_validador_financiero(vista_metodo):
-    """
-    Decorador para verificar si el usuario es validador financiero.
-    """
-    return requiere_grupos('Validador Financiero')(vista_metodo)
-
-
-def requiere_validador_abastecimiento(vista_metodo):
-    """
-    Decorador para verificar si el usuario es validador de abastecimiento.
-    """
-    return requiere_grupos('Validador Abastecimiento')(vista_metodo)
-
-
-def requiere_solicitante(vista_metodo):
-    """
-    Decorador para verificar si el usuario puede crear solicitudes.
-    """
-    return requiere_grupos('Solicitante')(vista_metodo)
-

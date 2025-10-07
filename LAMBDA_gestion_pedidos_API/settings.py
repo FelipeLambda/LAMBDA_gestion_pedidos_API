@@ -48,6 +48,8 @@ LOCAL_APPS = [
     'Usuarios',
     'Productos',
     'Solicitudes',
+    'Pedidos',
+    'Inventario',
 ]
 
 THIRD_PARTY_APPS = [

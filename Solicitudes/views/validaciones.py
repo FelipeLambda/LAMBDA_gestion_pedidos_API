@@ -66,33 +66,33 @@ class ValidarSolicitudBaseAPIView(APIView):
         return estados_map.get(self.estado_requerido, self.estado_requerido)
 
 
-class ValidarSolicitudFinancieroAPIView(ValidarSolicitudBaseAPIView):
+class ValidarSolicitudAbastecimientoAPIView(ValidarSolicitudBaseAPIView):
 
-    estado_requerido = 'PENDIENTE'
-    validador_field = 'validador_financiero'
-    fecha_validacion_field = 'fecha_validacion_financiero'
-    observaciones_field = 'observaciones_financiero'
-    estado_aprobado = 'VALIDADA_FINANCIERO'
-    mensaje_aprobado = 'Solicitud validada exitosamente por Financiero'
-    mensaje_rechazado = 'Solicitud rechazada por Financiero'
+    estado_requerido = 'PENDIENTE_ABASTECIMIENTO'
+    validador_field = 'validador_abastecimiento'
+    fecha_validacion_field = 'fecha_validacion_abastecimiento'
+    observaciones_field = 'observaciones_abastecimiento'
+    estado_aprobado = 'PENDIENTE_FINANZAS'
+    mensaje_aprobado = 'Solicitud validada exitosamente por Abastecimiento. Pasa a validación financiera.'
+    mensaje_rechazado = 'Solicitud rechazada por Abastecimiento'
 
-    @requiere_permiso('Solicitudes.validar_financiero')
+    @requiere_permiso('Solicitudes.validar_abastecimiento')
     @manejar_errores_db
     def post(self, request, pk):
         return self.validar_solicitud(request, pk)
 
 
-class ValidarSolicitudAbastecimientoAPIView(ValidarSolicitudBaseAPIView):
+class ValidarSolicitudFinancieroAPIView(ValidarSolicitudBaseAPIView):
 
-    estado_requerido = 'VALIDADA_FINANCIERO'
-    validador_field = 'validador_abastecimiento'
-    fecha_validacion_field = 'fecha_validacion_abastecimiento'
-    observaciones_field = 'observaciones_abastecimiento'
+    estado_requerido = 'PENDIENTE_FINANZAS'
+    validador_field = 'validador_financiero'
+    fecha_validacion_field = 'fecha_validacion_financiero'
+    observaciones_field = 'observaciones_financiero'
     estado_aprobado = 'APROBADA'
     mensaje_aprobado = 'Solicitud aprobada completamente. Puede convertirse en pedido.'
-    mensaje_rechazado = 'Solicitud rechazada por Abastecimiento'
+    mensaje_rechazado = 'Solicitud rechazada por Financiero'
 
-    @requiere_permiso('Solicitudes.validar_abastecimiento')
+    @requiere_permiso('Solicitudes.validar_financiero')
     @manejar_errores_db
     def post(self, request, pk):
         return self.validar_solicitud(request, pk)

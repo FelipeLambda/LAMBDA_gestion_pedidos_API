@@ -1,0 +1,245 @@
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from Pedidos.models import Pedido, DetallePedido
+from Pedidos.serializers import (
+    PedidoSerializer,
+    CrearPedidoSerializer,
+    ActualizarEstadoPedidoSerializer,
+    EditarPedidoSerializer
+)
+from Solicitudes.models import Solicitud
+from LAMBDA_gestion_pedidos_API.utils import (
+    FiltradoEmpresaMixin,
+    PermisosPorEmpresaMixin,
+    manejar_errores_db,
+    requiere_admin_empresa,
+    requiere_admin_sistema
+)
+from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
+
+
+class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        usuario = request.user
+
+        if usuario.is_superuser or usuario.groups.filter(name='Admin Sistema').exists():
+            pedidos = Pedido.objects.all()
+        elif usuario.groups.filter(name='Admin Empresa').exists():
+            pedidos = self.filtrar_por_empresa(request, Pedido.objects.all())
+        else:
+            pedidos = Pedido.objects.filter(solicitante=usuario)
+
+        serializer = PedidoSerializer(pedidos, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @manejar_errores_db
+    def get(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk)
+
+            puede_ver, mensaje_error = self.puede_ver_recurso(request.user, pedido)
+            if not puede_ver:
+                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+
+            serializer = PedidoSerializer(pedido)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Pedido.DoesNotExist:
+            return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    @requiere_admin_empresa
+    @manejar_errores_db
+    def delete(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk)
+
+            if pedido.estado_pedido not in ['PENDIENTE_PAGO', 'PAGO_CONFIRMADO']:
+                return Response(
+                    {'error': 'Solo se pueden eliminar pedidos en estado PENDIENTE_PAGO o PAGO_CONFIRMADO'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            puede_eliminar, mensaje_error = self.puede_eliminar_recurso(request.user, pedido)
+            if not puede_eliminar:
+                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+
+            if pedido.estado_pedido == 'PENDIENTE_PAGO':
+                for detalle in pedido.detalles.filter(estado=True):
+                    detalle.producto.liberar_reserva(
+                        cantidad=detalle.cantidad,
+                        usuario=request.user,
+                        pedido=pedido,
+                        observaciones=f'Liberación por eliminación de pedido - {pedido.numero_orden}'
+                    )
+
+            pedido.soft_delete()
+
+            return Response(
+                {'mensaje': 'Pedido eliminado exitosamente. Reservas liberadas.'},
+                status=status.HTTP_200_OK
+            )
+
+        except Pedido.DoesNotExist:
+            return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CrearPedidoDesdeSolicitudAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos('Admin Empresa', 'Admin Sistema')
+    @manejar_errores_db
+    def post(self, request):
+        serializer = CrearPedidoSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        solicitud_id = serializer.validated_data['solicitud_id']
+        observaciones = serializer.validated_data.get('observaciones', '')
+
+        try:
+            solicitud = Solicitud.objects.get(pk=solicitud_id, estado=True)
+
+            detalles_solicitud = solicitud.detalles.filter(estado=True)
+            for detalle in detalles_solicitud:
+                if not detalle.producto.tiene_stock_suficiente(detalle.cantidad):
+                    return Response({
+                        'error': f'Stock insuficiente para {detalle.producto.nombre}. Disponible: {detalle.producto.stock_disponible_real}, Solicitado: {detalle.cantidad}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            numero_orden = f"PED-{solicitud.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+
+            pedido = Pedido.objects.create(
+                solicitud=solicitud,
+                empresa=solicitud.empresa,
+                solicitante=solicitud.solicitante,
+                numero_orden=numero_orden,
+                observaciones=observaciones
+            )
+
+            for detalle_solicitud in detalles_solicitud:
+                DetallePedido.objects.create(
+                    pedido=pedido,
+                    producto=detalle_solicitud.producto,
+                    cantidad=detalle_solicitud.cantidad,
+                    precio_unitario=detalle_solicitud.precio_unitario
+                )
+
+                detalle_solicitud.producto.reservar_stock(
+                    cantidad=detalle_solicitud.cantidad,
+                    usuario=request.user,
+                    pedido=pedido,
+                    observaciones=f'Reserva automática para pedido {pedido.numero_orden}'
+                )
+
+            return Response({
+                'mensaje': 'Pedido creado exitosamente. Stock reservado.',
+                'pedido': PedidoSerializer(pedido).data
+            }, status=status.HTTP_201_CREATED)
+
+        except Solicitud.DoesNotExist:
+            return Response(
+                {'error': 'Solicitud no encontrada'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class ActualizarEstadoPedidoAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_admin_empresa
+    @manejar_errores_db
+    def patch(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk, estado=True)
+
+            serializer = ActualizarEstadoPedidoSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            nuevo_estado = serializer.validated_data['estado_pedido']
+            observaciones = serializer.validated_data.get('observaciones', pedido.observaciones)
+            estado_anterior = pedido.estado_pedido
+
+            pedido.estado_pedido = nuevo_estado
+            pedido.observaciones = observaciones
+
+            if nuevo_estado == 'COMPLETADO':
+                pedido.fecha_completado = timezone.now()
+
+            if nuevo_estado == 'PAGO_CONFIRMADO' and estado_anterior == 'PENDIENTE_PAGO':
+                for detalle in pedido.detalles.filter(estado=True):
+                    detalle.producto.liberar_reserva(
+                        cantidad=detalle.cantidad,
+                        usuario=request.user,
+                        pedido=pedido,
+                        observaciones=f'Liberación de reserva por pago confirmado - {pedido.numero_orden}'
+                    )
+                    detalle.producto.registrar_salida(
+                        cantidad=detalle.cantidad,
+                        usuario=request.user,
+                        observaciones=f'Salida por pedido confirmado - {pedido.numero_orden}'
+                    )
+
+            if nuevo_estado == 'CANCELADO' and estado_anterior == 'PENDIENTE_PAGO':
+                for detalle in pedido.detalles.filter(estado=True):
+                    detalle.producto.liberar_reserva(
+                        cantidad=detalle.cantidad,
+                        usuario=request.user,
+                        pedido=pedido,
+                        observaciones=f'Liberación de reserva por cancelación - {pedido.numero_orden}'
+                    )
+
+            pedido.save()
+
+            return Response({
+                'mensaje': 'Estado de pedido actualizado exitosamente',
+                'pedido': PedidoSerializer(pedido).data
+            }, status=status.HTTP_200_OK)
+
+        except Pedido.DoesNotExist:
+            return Response(
+                {'error': 'Pedido no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class EditarPedidoAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_admin_empresa
+    @manejar_errores_db
+    def patch(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk, estado=True)
+
+            if not pedido.puede_editarse:
+                return Response(
+                    {'error': 'Solo se pueden editar pedidos en estado PENDIENTE_PAGO'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            serializer = EditarPedidoSerializer(pedido, data=request.data, partial=True)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            pedido = serializer.save()
+
+            return Response({
+                'mensaje': 'Pedido actualizado exitosamente',
+                'pedido': PedidoSerializer(pedido).data
+            }, status=status.HTTP_200_OK)
+
+        except Pedido.DoesNotExist:
+            return Response(
+                {'error': 'Pedido no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )

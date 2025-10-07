@@ -1,21 +1,9 @@
 from rest_framework import serializers
 from .models import Solicitud, DetalleSolicitud
+from Base.serializers import DetalleBaseSerializer
 
 
-class DetalleSolicitudBaseSerializer(serializers.ModelSerializer):
-
-    def validate_cantidad(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
-        return value
-
-    def validate_precio_unitario(self, value):
-        if value < 0:
-            raise serializers.ValidationError("El precio unitario no puede ser negativo.")
-        return value
-
-
-class DetalleSolicitudSerializer(DetalleSolicitudBaseSerializer):
+class DetalleSolicitudSerializer(DetalleBaseSerializer):
     producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
     producto_sku = serializers.CharField(source='producto.sku', read_only=True)
     subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -30,10 +18,10 @@ class DetalleSolicitudSerializer(DetalleSolicitudBaseSerializer):
         read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
 
-class DetalleSolicitudCreateSerializer(DetalleSolicitudBaseSerializer):
+class DetalleSolicitudCreateSerializer(DetalleBaseSerializer):
     class Meta:
         model = DetalleSolicitud
-        fields = ['producto', 'cantidad', 'precio_unitario']
+        fields = ['producto', 'cantidad']
 
 
 class SolicitudSerializer(serializers.ModelSerializer):
@@ -94,9 +82,12 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
         )
 
         for detalle_data in detalles_data:
+            producto = detalle_data['producto']
             DetalleSolicitud.objects.create(
                 solicitud=solicitud,
-                **detalle_data
+                producto=producto,
+                cantidad=detalle_data['cantidad'],
+                precio_unitario=producto.precio
             )
 
         return solicitud
