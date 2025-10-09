@@ -22,7 +22,26 @@ class DetallePedidoSerializer(DetalleBaseSerializer):
 class DetallePedidoCreateSerializer(DetalleBaseSerializer):
     class Meta:
         model = DetallePedido
-        fields = ['producto', 'cantidad']
+        fields = ['producto', 'cantidad', 'precio_unitario']
+        extra_kwargs = {
+            'cantidad': {
+                'required': True,
+                'min_value': 1
+            },
+            'precio_unitario': {
+                'min_value': 0
+            }
+        }
+
+    def validate_cantidad(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
+        return value
+
+    def validate_precio_unitario(self, value):
+        if value < 0:
+            raise serializers.ValidationError("El precio unitario no puede ser negativo.")
+        return value
 
 
 class PedidoSerializer(serializers.ModelSerializer):

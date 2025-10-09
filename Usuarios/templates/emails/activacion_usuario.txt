@@ -1,0 +1,13 @@
+Hola {{ usuario.nombre }},
+
+Bienvenido a Lambda Commerce.
+
+Para activar tu cuenta, haz clic en el siguiente enlace:
+{{ url }}
+
+Este enlace expira en 7 días.
+
+Si no solicitaste esta cuenta, puedes ignorar este mensaje.
+
+Saludos,
+Equipo Lambda Commerce

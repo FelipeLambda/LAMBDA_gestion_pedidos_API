@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.template.loader import render_to_string
 from datetime import timedelta
 from Pedidos.models import Pedido
 from Pagos.models_notificaciones import NotificacionPago
@@ -13,14 +12,13 @@ class Command(BaseCommand):
         self.stdout.write('\n=== SISTEMA DE RECORDATORIOS DE PAGO ===\n')
 
         hoy = timezone.now()
-        email_service = EmailService()
 
-        self.enviar_recordatorios_previos(hoy, email_service)
-        self.enviar_recordatorios_mora(hoy, email_service)
+        self.enviar_recordatorios_previos(hoy)
+        self.enviar_recordatorios_mora(hoy)
 
         self.stdout.write(self.style.SUCCESS('\nProceso de recordatorios completado\n'))
 
-    def enviar_recordatorios_previos(self, hoy, email_service):
+    def enviar_recordatorios_previos(self, hoy):
         self.stdout.write('\n Buscando pagos próximos a vencer...')
 
         fecha_alerta = hoy + timedelta(days=3)
@@ -43,25 +41,7 @@ class Command(BaseCommand):
                 continue
 
             try:
-                contexto = {
-                    'titulo': 'Recordatorio de Pago Próximo a Vencer',
-                    'empresa_nombre': pedido.empresa.nombre,
-                    'numero_orden': pedido.numero_orden,
-                    'fecha_limite': pedido.fecha_limite_pago.strftime('%d/%m/%Y'),
-                    'monto_total': pedido.total,
-                    'dias_restantes': 3,
-                    'es_mora': False,
-                    'mensaje_principal': f'Le recordamos que su pago con número de orden {pedido.numero_orden} vence en 3 días.',
-                    'year': timezone.now().year
-                }
-
-                html_content = render_to_string('emails/recordatorio_pago.html', contexto)
-
-                email_service.enviar_email(
-                    destinatario=pedido.solicitante.email,
-                    asunto=f'Recordatorio: Pago próximo a vencer - {pedido.numero_orden}',
-                    html_content=html_content
-                )
+                EmailService.enviar_recordatorio_pago_previo(pedido)
 
                 NotificacionPago.objects.create(
                     pedido=pedido,
@@ -87,7 +67,7 @@ class Command(BaseCommand):
                     self.style.ERROR(f'Error enviando recordatorio para {pedido.numero_orden}: {e}')
                 )
 
-    def enviar_recordatorios_mora(self, hoy, email_service):
+    def enviar_recordatorios_mora(self, hoy):
         self.stdout.write('\n  Buscando pagos vencidos...')
 
         pedidos_vencidos = Pedido.objects.filter(
@@ -134,30 +114,7 @@ class Command(BaseCommand):
             try:
                 numero_recordatorio = notificaciones_previas + 1
 
-                contexto = {
-                    'titulo': 'Notificación de Pago Vencido' if numero_recordatorio < 5 else 'NOTIFICACIÓN FINAL - Acciones Legales',
-                    'empresa_nombre': pedido.empresa.nombre,
-                    'numero_orden': pedido.numero_orden,
-                    'fecha_limite': pedido.fecha_limite_pago.strftime('%d/%m/%Y'),
-                    'monto_total': pedido.total,
-                    'dias_vencidos': dias_vencido,
-                    'es_mora': True,
-                    'numero_recordatorio': numero_recordatorio,
-                    'mensaje_principal': f'Su pago con número de orden {pedido.numero_orden} se encuentra vencido desde hace {dias_vencido} días.',
-                    'year': timezone.now().year
-                }
-
-                html_content = render_to_string('emails/recordatorio_pago.html', contexto)
-
-                asunto = f'MORA {numero_recordatorio}/5: Pago Vencido - {pedido.numero_orden}'
-                if numero_recordatorio == 5:
-                    asunto = f'URGENTE - ACCIONES LEGALES: Pago Vencido - {pedido.numero_orden}'
-
-                email_service.enviar_email(
-                    destinatario=pedido.solicitante.email,
-                    asunto=asunto,
-                    html_content=html_content
-                )
+                EmailService.enviar_notificacion_mora(pedido, dias_vencido, numero_recordatorio)
 
                 NotificacionPago.objects.create(
                     pedido=pedido,

@@ -134,11 +134,6 @@ class Solicitud(BaseModel):
         return self.estado_solicitud == Solicitud.Estados.LISTO_PARA_COMPRA
 
     @property
-    def esta_aprobada(self):
-        """Alias por compatibilidad"""
-        return self.esta_lista_para_compra
-
-    @property
     def puede_convertirse_a_pedido(self):
         return self.esta_lista_para_compra
 

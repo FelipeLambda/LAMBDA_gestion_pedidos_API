@@ -9,6 +9,6 @@ from .views import (
 urlpatterns = [
     path('api/solicitudes', SolicitudListCreateAPIView.as_view(), name='listarCrearSolicitudes'),
     path('api/solicitudes/<int:pk>', SolicitudDetailAPIView.as_view(), name='detalleSolicitud'),
-    path('api/solicitudes/<int:pk>/validar_financiero', ValidarSolicitudFinancieroAPIView.as_view(), name='validarSolicitudFinanciero'),
-    path('api/solicitudes/<int:pk>/validar_abastecimiento', ValidarSolicitudAbastecimientoAPIView.as_view(), name='validarSolicitudAbastecimiento'),
+    path('api/solicitudes/<int:pk>/validarFinanciero', ValidarSolicitudFinancieroAPIView.as_view(), name='validarSolicitudFinanciero'),
+    path('api/solicitudes/<int:pk>/validarAbastecimiento', ValidarSolicitudAbastecimientoAPIView.as_view(), name='validarSolicitudAbastecimiento'),
 ]

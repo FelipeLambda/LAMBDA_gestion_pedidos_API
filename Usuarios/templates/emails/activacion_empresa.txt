@@ -1,0 +1,15 @@
+Hola {{ empresa.nombre_contacto }},
+
+Bienvenido a Lambda Commerce Solutions.
+
+Su empresa {{ empresa.nombre }} ha sido registrada exitosamente en nuestra plataforma.
+
+Para activar la cuenta del administrador, haz clic en el siguiente enlace:
+{{ url }}
+
+Este enlace expira en 7 días.
+
+Si no solicitaste este registro, contacta con nuestro soporte.
+
+Saludos,
+Equipo Lambda Commerce

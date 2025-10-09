@@ -190,16 +190,6 @@ class DetallePedido(BaseModel):
     def __str__(self):
         return f"{self.producto.nombre} x{self.cantidad}"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError('La cantidad debe ser mayor a 0.')
-        if self.precio_unitario < 0:
-            raise ValidationError('El precio unitario no puede ser negativo.')
-
     @property
     def subtotal(self):
         return self.cantidad * self.precio_unitario
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)

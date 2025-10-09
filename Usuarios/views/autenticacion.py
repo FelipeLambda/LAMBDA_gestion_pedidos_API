@@ -1,7 +1,5 @@
 import secrets
 from datetime import timedelta
-from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -10,15 +8,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from Usuarios.models import Usuario
 from Usuarios.serializers import (
-    UsuarioSerializer, RegistroUsuarioSerializer, LoginSerializer,
+    UsuarioSerializer, LoginSerializer,
     CambioPasswordSerializer, RecuperarPasswordSerializer, ResetPasswordSerializer
 )
-
-
-# RegistroUsuarioAPIView ELIMINADA
-# Solo los administradores pueden crear usuarios mediante /api/usuarios
-# Los usuarios nuevos activan su cuenta mediante /api/auth/activar_cuenta con el token recibido por email
-
+from Usuarios.services.email_service import EmailService
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
@@ -93,14 +86,7 @@ class RecuperarPasswordAPIView(APIView):
             usuario.token_expiracion = timezone.now() + timedelta(hours=24)
             usuario.save()
 
-            reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-            send_mail(
-                'Recuperación de contraseña - Lambda Commerce',
-                f'Hola {usuario.nombre},\n\nPara restablecer tu contraseña, haz clic en el siguiente enlace:\n{reset_url}\n\nEste enlace expira en 24 horas.',
-                settings.DEFAULT_FROM_EMAIL,
-                [usuario.email],
-                fail_silently=False,
-            )
+            EmailService.enviar_email_recuperacion_password(usuario, token)
 
             return Response({'mensaje': 'Se ha enviado un correo con instrucciones para recuperar tu contraseña'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

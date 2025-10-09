@@ -14,8 +14,7 @@ from Solicitudes.models import Solicitud
 from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
-    manejar_errores_db,
-    requiere_grupos
+    manejar_errores_db
 )
 from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
 from Usuarios.models import Grupos
@@ -72,6 +71,7 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView
             if not puede_eliminar:
                 return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
 
+            # Liberar reservas de stock antes de eliminar pedido
             if pedido.estado_pedido == Pedido.Estados.PENDIENTE_PAGO:
                 from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
@@ -98,7 +98,7 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView
 class CrearPedidoDesdeSolicitudAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos('Admin Empresa', 'Admin Sistema')
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def post(self, request):
         serializer = CrearPedidoSerializer(data=request.data)
@@ -186,6 +186,8 @@ class ActualizarEstadoPedidoAPIView(APIView):
             if nuevo_estado == Pedido.Estados.COMPLETADO:
                 pedido.fecha_completado = timezone.now()
 
+            # Al confirmar pago: liberar reserva y descontar stock disponible
+            # Flujo: RESERVA -> LIBERACION_RESERVA + SALIDA (mantiene trazabilidad completa)
             if nuevo_estado == Pedido.Estados.PAGO_CONFIRMADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
                 from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
@@ -209,6 +211,7 @@ class ActualizarEstadoPedidoAPIView(APIView):
                         observaciones=f'Salida por pedido confirmado - {pedido.numero_orden}'
                     )
 
+            # Al cancelar pedido pendiente de pago: liberar reservas de stock
             if nuevo_estado == Pedido.Estados.CANCELADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
                 from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):

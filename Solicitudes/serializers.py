@@ -73,6 +73,34 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
         model = Solicitud
         fields = ['empresa', 'area', 'observaciones', 'detalles']
 
+    def validate_empresa(self, value):
+        from django.contrib.auth.models import Group
+        from Usuarios.models import Grupos
+
+        grupo_financiero = Group.objects.get(name=Grupos.VALIDADOR_FINANCIERO)
+        tiene_validador_financiero = value.usuarios.filter(
+            groups=grupo_financiero,
+            is_active=True
+        ).exists()
+
+        if not tiene_validador_financiero:
+            raise serializers.ValidationError(
+                "La empresa no tiene validadores financieros activos. No se pueden crear solicitudes."
+            )
+
+        grupo_abastecimiento = Group.objects.get(name=Grupos.VALIDADOR_ABASTECIMIENTO)
+        tiene_validador_abastecimiento = value.usuarios.filter(
+            groups=grupo_abastecimiento,
+            is_active=True
+        ).exists()
+
+        if not tiene_validador_abastecimiento:
+            raise serializers.ValidationError(
+                "La empresa no tiene validadores de abastecimiento activos. No se pueden crear solicitudes."
+            )
+
+        return value
+
     def validate_detalles(self, value):
         if not value:
             raise serializers.ValidationError("Debe incluir al menos un detalle en la solicitud.")

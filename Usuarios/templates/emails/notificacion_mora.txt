@@ -1,0 +1,18 @@
+Hola {{ pedido.solicitante.nombre }},
+
+Notificación de Pago Vencido ({{ numero_recordatorio }}/5)
+
+Su pago se encuentra vencido.
+
+Empresa: {{ pedido.empresa.nombre }}
+Número de Orden: {{ pedido.numero_orden }}
+Fecha Límite: {{ fecha_limite }}
+Monto Total: ${{ pedido.total }}
+Días Vencidos: {{ dias_vencido }}
+
+Por favor, regularice su situación a la brevedad posible.
+
+Esta es la notificación {{ numero_recordatorio }} de 5.
+
+Saludos,
+Equipo Lambda Commerce

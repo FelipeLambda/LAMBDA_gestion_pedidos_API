@@ -1,0 +1,20 @@
+Hola {{ pedido.solicitante.nombre }},
+
+NOTIFICACIÓN FINAL - ACCIONES LEGALES
+
+Esta es la QUINTA y ÚLTIMA notificación respecto al pago vencido.
+
+Empresa: {{ pedido.empresa.nombre }}
+Número de Orden: {{ pedido.numero_orden }}
+Fecha Límite: {{ fecha_limite }}
+Monto Total: ${{ pedido.total }}
+Días Vencidos: {{ dias_vencido }}
+
+Su pago se encuentra vencido desde hace {{ dias_vencido }} días.
+
+ADVERTENCIA: Si no recibimos el pago en los próximos 5 días hábiles, procederemos con acciones legales para recuperar el monto adeudado.
+
+Contacte urgentemente con nuestro departamento de cobranzas.
+
+Equipo Legal
+Lambda Commerce

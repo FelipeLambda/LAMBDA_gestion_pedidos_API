@@ -18,8 +18,6 @@ class Categoria(BaseModel):
 
 
 class ProductoManager(models.Manager):
-    """Manager personalizado para Producto con consultas específicas"""
-
     def con_stock_bajo(self):
         return self.filter(estado=True, stock_disponible__lt=models.F('umbral_minimo'))
 
