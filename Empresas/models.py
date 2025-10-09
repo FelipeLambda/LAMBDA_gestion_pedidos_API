@@ -8,6 +8,11 @@ class Empresa(BaseModel):
     nombre_contacto = models.CharField(max_length=200, default='Sin contacto', verbose_name='Nombre del contacto')
     correo_contacto = models.EmailField(verbose_name='Correo de contacto')
     pagar_despues = models.BooleanField(default=False, verbose_name='¿Autorizado para pago diferido?')
+    periodo_pago_dias = models.IntegerField(
+        default=60,
+        verbose_name='Periodo máximo de pago (días)',
+        help_text='Máximo 60 días (2 meses)'
+    )
     token_activacion = models.CharField(max_length=100, blank=True, null=True, verbose_name='Token de activación')
     token_expiracion = models.DateTimeField(blank=True, null=True, verbose_name='Expiración del token')
 

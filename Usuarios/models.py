@@ -5,6 +5,24 @@ from Base.models import BaseModel
 from Empresas.models import Empresa, Area
 
 
+class Grupos:
+    ADMIN_SISTEMA = 'Admin Sistema'
+    ADMIN_EMPRESA = 'Admin Empresa'
+    VALIDADOR_FINANCIERO = 'Validador Financiero'
+    VALIDADOR_ABASTECIMIENTO = 'Validador Abastecimiento'
+    SOLICITANTE = 'Solicitante'
+
+    @classmethod
+    def todos(cls):
+        return [
+            cls.ADMIN_SISTEMA,
+            cls.ADMIN_EMPRESA,
+            cls.VALIDADOR_FINANCIERO,
+            cls.VALIDADOR_ABASTECIMIENTO,
+            cls.SOLICITANTE
+        ]
+
+
 class UsuarioManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:

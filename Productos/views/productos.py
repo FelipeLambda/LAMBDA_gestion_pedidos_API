@@ -8,7 +8,8 @@ from Productos.serializers import (
     ProductoSerializer, ProductoListSerializer,
     ProductoCreateUpdateSerializer
 )
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, manejar_errores_db
+from Usuarios.models import Grupos
 
 
 class ProductoListCreateAPIView(APIView):
@@ -38,7 +39,7 @@ class ProductoListCreateAPIView(APIView):
         serializer = ProductoListSerializer(productos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     def post(self, request):
         """
         Crea un nuevo producto.
@@ -68,7 +69,7 @@ class ProductoDetailAPIView(APIView):
         except Producto.DoesNotExist:
             return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -93,7 +94,7 @@ class ProductoDetailAPIView(APIView):
         except Producto.DoesNotExist:
             return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def delete(self, request, pk):
         """
@@ -115,7 +116,7 @@ class ProductoAlertasStockAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     def get(self, request):
         """
         Lista productos con stock bajo.

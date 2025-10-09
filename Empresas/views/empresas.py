@@ -8,19 +8,20 @@ from rest_framework.permissions import IsAuthenticated
 from Empresas.models import Empresa
 from Empresas.serializers import EmpresaSerializer
 from Usuarios.services import EmailService
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, requiere_admin_empresa, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, manejar_errores_db
+from Usuarios.models import Grupos
 
 
 class EmpresaListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def get(self, request):
         empresas = Empresa.activos.all()
         serializer = EmpresaSerializer(empresas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     def post(self, request):
         serializer = EmpresaSerializer(data=request.data)
         if serializer.is_valid():
@@ -41,7 +42,7 @@ class EmpresaListCreateAPIView(APIView):
 class EmpresaDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def get(self, request, pk):
         try:
@@ -51,7 +52,7 @@ class EmpresaDetailAPIView(APIView):
         except Empresa.DoesNotExist:
             return Response({'error': 'Empresa no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
         try:

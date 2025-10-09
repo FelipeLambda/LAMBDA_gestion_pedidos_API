@@ -50,6 +50,8 @@ LOCAL_APPS = [
     'Solicitudes',
     'Pedidos',
     'Inventario',
+    'Pagos',
+    'Reportes',
 ]
 
 THIRD_PARTY_APPS = [
@@ -158,8 +160,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PAGINATION_CLASS': 'LAMBDA_gestion_pedidos_API.utils.pagination.StandardPagination',
-    'PAGE_SIZE': 20,
+    'DEFAULT_PAGINATION_CLASS': 'LAMBDA_gestion_pedidos_API.utils.pagination.PaginacionEstandar',
 }
 
 # SIMPLE JWT

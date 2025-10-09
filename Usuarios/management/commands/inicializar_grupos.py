@@ -1,16 +1,18 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group
 
+from Usuarios.models import Grupos
+
 
 class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         grupos = [
-            'Admin Sistema',
-            'Admin Empresa',
-            'Validador Financiero',
-            'Validador Abastecimiento',
-            'Solicitante',
+            Grupos.ADMIN_SISTEMA,
+            Grupos.ADMIN_EMPRESA,
+            Grupos.VALIDADOR_FINANCIERO,
+            Grupos.VALIDADOR_ABASTECIMIENTO,
+            Grupos.SOLICITANTE,
         ]
 
         for nombre_grupo in grupos:

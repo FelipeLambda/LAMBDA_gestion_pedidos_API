@@ -21,7 +21,6 @@ class ProductoManager(models.Manager):
     """Manager personalizado para Producto con consultas específicas"""
 
     def con_stock_bajo(self):
-        """Retorna productos activos con stock por debajo del umbral mínimo"""
         return self.filter(estado=True, stock_disponible__lt=models.F('umbral_minimo'))
 
 
@@ -48,9 +47,6 @@ class Producto(BaseModel):
 
     @property
     def stock_bajo(self):
-        """
-        Retorna True si el stock disponible está por debajo del umbral mínimo.
-        """
         return self.stock_disponible < self.umbral_minimo
 
     @property
@@ -61,13 +57,13 @@ class Producto(BaseModel):
         from Inventario.models import MovimientoInventario
         reservas = MovimientoInventario.objects.filter(
             producto=self,
-            tipo_movimiento='RESERVA',
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
             estado=True
         ).aggregate(total=models.Sum('cantidad'))['total'] or 0
 
         liberaciones = MovimientoInventario.objects.filter(
             producto=self,
-            tipo_movimiento='LIBERACION_RESERVA',
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
             estado=True
         ).aggregate(total=models.Sum('cantidad'))['total'] or 0
 
@@ -75,73 +71,7 @@ class Producto(BaseModel):
 
     @property
     def stock_disponible_real(self):
-        """
-        Retorna el stock realmente disponible (sin contar reservas).
-        """
         return self.stock_disponible - self.stock_reservado
 
     def tiene_stock_suficiente(self, cantidad):
-        """
-        Verifica si hay stock suficiente disponible (sin contar reservas).
-        """
         return self.stock_disponible_real >= cantidad
-
-    def registrar_entrada(self, cantidad, usuario, observaciones=''):
-        """
-        Registra una entrada de stock.
-        """
-        from Inventario.models import MovimientoInventario
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='ENTRADA',
-            producto=self,
-            cantidad=cantidad,
-            usuario_responsable=usuario,
-            observaciones=observaciones
-        )
-
-    def registrar_salida(self, cantidad, usuario, observaciones=''):
-        """
-        Registra una salida de stock.
-        """
-        from Inventario.models import MovimientoInventario
-        if not self.tiene_stock_suficiente(cantidad):
-            raise ValidationError(f'Stock insuficiente. Disponible: {self.stock_disponible_real}')
-
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='SALIDA',
-            producto=self,
-            cantidad=cantidad,
-            usuario_responsable=usuario,
-            observaciones=observaciones
-        )
-
-    def reservar_stock(self, cantidad, usuario, pedido, observaciones=''):
-        """
-        Reserva stock para un pedido.
-        """
-        from Inventario.models import MovimientoInventario
-        if not self.tiene_stock_suficiente(cantidad):
-            raise ValidationError(f'Stock insuficiente para reservar. Disponible: {self.stock_disponible_real}')
-
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='RESERVA',
-            producto=self,
-            cantidad=cantidad,
-            usuario_responsable=usuario,
-            pedido=pedido,
-            observaciones=observaciones
-        )
-
-    def liberar_reserva(self, cantidad, usuario, pedido, observaciones=''):
-        """
-        Libera una reserva de stock.
-        """
-        from Inventario.models import MovimientoInventario
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='LIBERACION_RESERVA',
-            producto=self,
-            cantidad=cantidad,
-            usuario_responsable=usuario,
-            pedido=pedido,
-            observaciones=observaciones
-        )

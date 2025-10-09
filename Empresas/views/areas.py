@@ -4,19 +4,20 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Empresas.models import Area
 from Empresas.serializers import AreaSerializer
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_empresa, FiltradoEmpresaMixin, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, FiltradoEmpresaMixin, manejar_errores_db
+from Usuarios.models import Grupos
 
 
 class AreaListCreateAPIView(FiltradoEmpresaMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def get(self, request):
         areas = self.filtrar_por_empresa(request, Area.activos.all())
         serializer = AreaSerializer(areas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def post(self, request):
         serializer = AreaSerializer(data=request.data)
         if serializer.is_valid():
@@ -31,7 +32,7 @@ class AreaListCreateAPIView(FiltradoEmpresaMixin, APIView):
 class AreaDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def get(self, request, pk):
         try:
@@ -41,7 +42,7 @@ class AreaDetailAPIView(APIView):
         except Area.DoesNotExist:
             return Response({'error': 'Área no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
         try:
@@ -57,7 +58,7 @@ class AreaDetailAPIView(APIView):
         except Area.DoesNotExist:
             return Response({'error': 'Área no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def delete(self, request, pk):
         try:

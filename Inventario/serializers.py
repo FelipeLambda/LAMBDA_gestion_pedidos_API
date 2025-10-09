@@ -1,11 +1,11 @@
 from rest_framework import serializers
 from .models import MovimientoInventario
 from Productos.models import Producto
+from Productos.serializers import ProductoListSerializer
 
 
 class MovimientoInventarioSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.CharField(source='producto.nombre', read_only=True)
-    producto_sku = serializers.CharField(source='producto.sku', read_only=True)
+    producto_detalle = ProductoListSerializer(source='producto', read_only=True)
     usuario_nombre = serializers.CharField(source='usuario_responsable.nombre', read_only=True)
     pedido_numero = serializers.CharField(source='pedido.numero_orden', read_only=True)
     tipo_movimiento_display = serializers.CharField(source='get_tipo_movimiento_display', read_only=True)
@@ -14,7 +14,7 @@ class MovimientoInventarioSerializer(serializers.ModelSerializer):
         model = MovimientoInventario
         fields = [
             'id', 'tipo_movimiento', 'tipo_movimiento_display',
-            'producto', 'producto_nombre', 'producto_sku',
+            'producto', 'producto_detalle',
             'cantidad', 'usuario_responsable', 'usuario_nombre',
             'pedido', 'pedido_numero', 'observaciones',
             'fecha_creacion', 'fecha_actualizacion', 'estado'
@@ -24,40 +24,47 @@ class MovimientoInventarioSerializer(serializers.ModelSerializer):
         ]
 
 
-class RegistrarMovimientoSerializer(serializers.Serializer):
-    tipo_movimiento = serializers.ChoiceField(
-        choices=['ENTRADA', 'SALIDA'],
-        required=True
-    )
-    producto_id = serializers.IntegerField(required=True)
-    cantidad = serializers.IntegerField(required=True, min_value=1)
-    observaciones = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        max_length=500
-    )
+class RegistrarMovimientoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MovimientoInventario
+        fields = ['tipo_movimiento', 'producto', 'cantidad', 'observaciones']
+        extra_kwargs = {
+            'tipo_movimiento': {
+                'required': True
+            },
+            'producto': {
+                'required': True
+            },
+            'cantidad': {
+                'required': True,
+                'min_value': 1
+            },
+            'observaciones': {
+                'required': False,
+                'allow_blank': True
+            }
+        }
 
-    def validate_producto_id(self, value):
-        try:
-            producto = Producto.objects.get(pk=value, estado=True)
-        except Producto.DoesNotExist:
-            raise serializers.ValidationError("Producto no encontrado o inactivo.")
+    def validate_tipo_movimiento(self, value):
+        if value not in [MovimientoInventario.TiposMovimiento.ENTRADA, MovimientoInventario.TiposMovimiento.SALIDA]:
+            raise serializers.ValidationError("Solo se permiten movimientos de tipo ENTRADA o SALIDA.")
+        return value
+
+    def validate_producto(self, value):
+        if not value.estado:
+            raise serializers.ValidationError("El producto está inactivo.")
         return value
 
     def validate(self, attrs):
         tipo = attrs.get('tipo_movimiento')
-        producto_id = attrs.get('producto_id')
+        producto = attrs.get('producto')
         cantidad = attrs.get('cantidad')
 
-        if tipo == 'SALIDA':
-            try:
-                producto = Producto.objects.get(pk=producto_id)
-                if not producto.tiene_stock_suficiente(cantidad):
-                    raise serializers.ValidationError({
-                        "cantidad": f"Stock insuficiente. Disponible: {producto.stock_disponible_real}, Solicitado: {cantidad}"
-                    })
-            except Producto.DoesNotExist:
-                pass
+        if tipo == MovimientoInventario.TiposMovimiento.SALIDA:
+            if not producto.tiene_stock_suficiente(cantidad):
+                raise serializers.ValidationError({
+                    "cantidad": f"Stock insuficiente. Disponible: {producto.stock_disponible_real}, Solicitado: {cantidad}"
+                })
 
         return attrs
 

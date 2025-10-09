@@ -15,10 +15,10 @@ from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
     manejar_errores_db,
-    requiere_admin_empresa,
-    requiere_admin_sistema
+    requiere_grupos
 )
 from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
+from Usuarios.models import Grupos
 
 
 class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
@@ -27,9 +27,9 @@ class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
     def get(self, request):
         usuario = request.user
 
-        if usuario.is_superuser or usuario.groups.filter(name='Admin Sistema').exists():
+        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
             pedidos = Pedido.objects.all()
-        elif usuario.groups.filter(name='Admin Empresa').exists():
+        elif usuario.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
             pedidos = self.filtrar_por_empresa(request, Pedido.objects.all())
         else:
             pedidos = Pedido.objects.filter(solicitante=usuario)
@@ -56,13 +56,13 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView
         except Pedido.DoesNotExist:
             return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def delete(self, request, pk):
         try:
             pedido = Pedido.objects.get(pk=pk)
 
-            if pedido.estado_pedido not in ['PENDIENTE_PAGO', 'PAGO_CONFIRMADO']:
+            if pedido.estado_pedido not in [Pedido.Estados.PENDIENTE_PAGO, Pedido.Estados.PAGO_CONFIRMADO]:
                 return Response(
                     {'error': 'Solo se pueden eliminar pedidos en estado PENDIENTE_PAGO o PAGO_CONFIRMADO'},
                     status=status.HTTP_400_BAD_REQUEST
@@ -72,11 +72,14 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView
             if not puede_eliminar:
                 return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
 
-            if pedido.estado_pedido == 'PENDIENTE_PAGO':
+            if pedido.estado_pedido == Pedido.Estados.PENDIENTE_PAGO:
+                from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
-                    detalle.producto.liberar_reserva(
+                    MovimientoInventario.objects.create(
+                        tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
+                        producto=detalle.producto,
                         cantidad=detalle.cantidad,
-                        usuario=request.user,
+                        usuario_responsable=request.user,
                         pedido=pedido,
                         observaciones=f'Liberación por eliminación de pedido - {pedido.numero_orden}'
                     )
@@ -110,6 +113,11 @@ class CrearPedidoDesdeSolicitudAPIView(APIView):
 
             detalles_solicitud = solicitud.detalles.filter(estado=True)
             for detalle in detalles_solicitud:
+                if detalle.cantidad <= 0:
+                    return Response({
+                        'error': f'La cantidad debe ser mayor a 0 para {detalle.producto.nombre}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
                 if not detalle.producto.tiene_stock_suficiente(detalle.cantidad):
                     return Response({
                         'error': f'Stock insuficiente para {detalle.producto.nombre}. Disponible: {detalle.producto.stock_disponible_real}, Solicitado: {detalle.cantidad}'
@@ -125,6 +133,7 @@ class CrearPedidoDesdeSolicitudAPIView(APIView):
                 observaciones=observaciones
             )
 
+            from Inventario.models import MovimientoInventario
             for detalle_solicitud in detalles_solicitud:
                 DetallePedido.objects.create(
                     pedido=pedido,
@@ -133,9 +142,11 @@ class CrearPedidoDesdeSolicitudAPIView(APIView):
                     precio_unitario=detalle_solicitud.precio_unitario
                 )
 
-                detalle_solicitud.producto.reservar_stock(
+                MovimientoInventario.objects.create(
+                    tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
+                    producto=detalle_solicitud.producto,
                     cantidad=detalle_solicitud.cantidad,
-                    usuario=request.user,
+                    usuario_responsable=request.user,
                     pedido=pedido,
                     observaciones=f'Reserva automática para pedido {pedido.numero_orden}'
                 )
@@ -155,7 +166,7 @@ class CrearPedidoDesdeSolicitudAPIView(APIView):
 class ActualizarEstadoPedidoAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def patch(self, request, pk):
         try:
@@ -172,28 +183,40 @@ class ActualizarEstadoPedidoAPIView(APIView):
             pedido.estado_pedido = nuevo_estado
             pedido.observaciones = observaciones
 
-            if nuevo_estado == 'COMPLETADO':
+            if nuevo_estado == Pedido.Estados.COMPLETADO:
                 pedido.fecha_completado = timezone.now()
 
-            if nuevo_estado == 'PAGO_CONFIRMADO' and estado_anterior == 'PENDIENTE_PAGO':
+            if nuevo_estado == Pedido.Estados.PAGO_CONFIRMADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
+                from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
-                    detalle.producto.liberar_reserva(
+                    MovimientoInventario.objects.create(
+                        tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
+                        producto=detalle.producto,
                         cantidad=detalle.cantidad,
-                        usuario=request.user,
+                        usuario_responsable=request.user,
                         pedido=pedido,
                         observaciones=f'Liberación de reserva por pago confirmado - {pedido.numero_orden}'
                     )
-                    detalle.producto.registrar_salida(
+
+                    detalle.producto.stock_disponible -= detalle.cantidad
+                    detalle.producto.save()
+
+                    MovimientoInventario.objects.create(
+                        tipo_movimiento=MovimientoInventario.TiposMovimiento.SALIDA,
+                        producto=detalle.producto,
                         cantidad=detalle.cantidad,
-                        usuario=request.user,
+                        usuario_responsable=request.user,
                         observaciones=f'Salida por pedido confirmado - {pedido.numero_orden}'
                     )
 
-            if nuevo_estado == 'CANCELADO' and estado_anterior == 'PENDIENTE_PAGO':
+            if nuevo_estado == Pedido.Estados.CANCELADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
+                from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
-                    detalle.producto.liberar_reserva(
+                    MovimientoInventario.objects.create(
+                        tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
+                        producto=detalle.producto,
                         cantidad=detalle.cantidad,
-                        usuario=request.user,
+                        usuario_responsable=request.user,
                         pedido=pedido,
                         observaciones=f'Liberación de reserva por cancelación - {pedido.numero_orden}'
                     )
@@ -215,7 +238,7 @@ class ActualizarEstadoPedidoAPIView(APIView):
 class EditarPedidoAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def patch(self, request, pk):
         try:

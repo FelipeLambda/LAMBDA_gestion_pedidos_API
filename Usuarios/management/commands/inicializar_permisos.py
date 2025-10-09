@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from Usuarios.models import Grupos
 
 
 class Command(BaseCommand):
@@ -9,11 +10,11 @@ class Command(BaseCommand):
         self.stdout.write('\nAsignando permisos a grupos...\n')
 
         try:
-            admin_sistema = Group.objects.get(name='Admin Sistema')
-            admin_empresa = Group.objects.get(name='Admin Empresa')
-            validador_financiero = Group.objects.get(name='Validador Financiero')
-            validador_abastecimiento = Group.objects.get(name='Validador Abastecimiento')
-            solicitante = Group.objects.get(name='Solicitante')
+            admin_sistema = Group.objects.get(name=Grupos.ADMIN_SISTEMA)
+            admin_empresa = Group.objects.get(name=Grupos.ADMIN_EMPRESA)
+            validador_financiero = Group.objects.get(name=Grupos.VALIDADOR_FINANCIERO)
+            validador_abastecimiento = Group.objects.get(name=Grupos.VALIDADOR_ABASTECIMIENTO)
+            solicitante = Group.objects.get(name=Grupos.SOLICITANTE)
 
             todos_permisos = Permission.objects.filter(
                 content_type__app_label__in=['Empresas', 'Usuarios', 'Productos', 'Solicitudes', 'Base']

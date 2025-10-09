@@ -48,7 +48,7 @@ class ValidarSolicitudBaseAPIView(APIView):
                 solicitud.estado_solicitud = self.estado_aprobado
                 mensaje = self.mensaje_aprobado
             else:
-                solicitud.estado_solicitud = 'RECHAZADA'
+                solicitud.estado_solicitud = Solicitud.Estados.RECHAZADA
                 mensaje = self.mensaje_rechazado
 
             solicitud.save()
@@ -62,17 +62,16 @@ class ValidarSolicitudBaseAPIView(APIView):
             return Response({'error': 'Solicitud no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
     def get_nombre_estado_requerido(self):
-        estados_map = dict(Solicitud.ESTADOS_SOLICITUD)
-        return estados_map.get(self.estado_requerido, self.estado_requerido)
+        return Solicitud.Estados(self.estado_requerido).label
 
 
 class ValidarSolicitudAbastecimientoAPIView(ValidarSolicitudBaseAPIView):
 
-    estado_requerido = 'PENDIENTE_ABASTECIMIENTO'
+    estado_requerido = Solicitud.Estados.PENDIENTE_ABASTECIMIENTO
     validador_field = 'validador_abastecimiento'
     fecha_validacion_field = 'fecha_validacion_abastecimiento'
     observaciones_field = 'observaciones_abastecimiento'
-    estado_aprobado = 'PENDIENTE_FINANZAS'
+    estado_aprobado = Solicitud.Estados.PENDIENTE_FINANZAS
     mensaje_aprobado = 'Solicitud validada exitosamente por Abastecimiento. Pasa a validación financiera.'
     mensaje_rechazado = 'Solicitud rechazada por Abastecimiento'
 
@@ -84,12 +83,12 @@ class ValidarSolicitudAbastecimientoAPIView(ValidarSolicitudBaseAPIView):
 
 class ValidarSolicitudFinancieroAPIView(ValidarSolicitudBaseAPIView):
 
-    estado_requerido = 'PENDIENTE_FINANZAS'
+    estado_requerido = Solicitud.Estados.PENDIENTE_FINANZAS
     validador_field = 'validador_financiero'
     fecha_validacion_field = 'fecha_validacion_financiero'
     observaciones_field = 'observaciones_financiero'
-    estado_aprobado = 'APROBADA'
-    mensaje_aprobado = 'Solicitud aprobada completamente. Puede convertirse en pedido.'
+    estado_aprobado = Solicitud.Estados.LISTO_PARA_COMPRA
+    mensaje_aprobado = 'Solicitud lista para compra. Puede convertirse en pedido.'
     mensaje_rechazado = 'Solicitud rechazada por Financiero'
 
     @requiere_permiso('Solicitudes.validar_financiero')

@@ -10,19 +10,20 @@ from rest_framework.permissions import IsAuthenticated
 from Usuarios.models import Usuario
 from Usuarios.serializers import UsuarioSerializer, RegistroUsuarioSerializer
 from Usuarios.services import EmailService
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_empresa, FiltradoEmpresaMixin, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, FiltradoEmpresaMixin, manejar_errores_db
+from Usuarios.models import Grupos
 
 
 class UsuarioListCreateAPIView(FiltradoEmpresaMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def get(self, request):
         usuarios = self.filtrar_por_empresa(request, Usuario.objects.all())
         serializer = UsuarioSerializer(usuarios, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def post(self, request):
         serializer = RegistroUsuarioSerializer(data=request.data)
         if serializer.is_valid():
@@ -55,7 +56,7 @@ class UsuarioDetailAPIView(APIView):
         except Usuario.DoesNotExist:
             return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_empresa
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
         try:

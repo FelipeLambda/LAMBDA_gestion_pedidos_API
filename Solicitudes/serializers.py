@@ -22,6 +22,17 @@ class DetalleSolicitudCreateSerializer(DetalleBaseSerializer):
     class Meta:
         model = DetalleSolicitud
         fields = ['producto', 'cantidad']
+        extra_kwargs = {
+            'cantidad': {
+                'required': True,
+                'min_value': 1
+            }
+        }
+
+    def validate_cantidad(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
+        return value
 
 
 class SolicitudSerializer(serializers.ModelSerializer):

@@ -5,6 +5,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError
 import logging
 
+from Usuarios.models import Grupos
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,16 +82,4 @@ def manejar_errores_db(vista_metodo):
             )
 
     return wrapper
-
-def requiere_admin_sistema(vista_metodo):
-    """
-    Decorador para verificar si el usuario es administrador del sistema.
-    """
-    return requiere_grupos('Admin Sistema')(vista_metodo)
-
-def requiere_admin_empresa(vista_metodo):
-    """
-    Decorador para verificar si el usuario es administrador de empresa.
-    """
-    return requiere_grupos('Admin Empresa', 'Admin Sistema')(vista_metodo)
 

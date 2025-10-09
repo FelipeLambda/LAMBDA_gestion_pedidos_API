@@ -13,8 +13,7 @@ class BaseModel(models.Model):
     fecha_actualizacion = models.DateTimeField(auto_now=True, verbose_name='Fecha de actualización')
     estado = models.BooleanField(default=True, verbose_name='Estado')
 
-    objects = models.Manager()  # Manager por defecto (retorna todos)
-    activos = ActiveManager()   # Manager para objetos activos únicamente
+    activos = ActiveManager()
 
     class Meta:
         abstract = True

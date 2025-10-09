@@ -8,7 +8,6 @@ from .views import (
 )
 
 urlpatterns = [
-    # path('api/auth/registro', RegistroUsuarioAPIView.as_view(), name='registro'),  # ← ELIMINADO: Solo admin puede crear usuarios
     path('api/auth/login', LoginAPIView.as_view(), name='login'),
     path('api/auth/logout', LogoutAPIView.as_view(), name='logout'),
     path('api/auth/actualizar_token', TokenRefreshView.as_view(), name='actualizarToken'),

@@ -1,5 +1,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from datetime import timedelta
 from Base.models import BaseModel, ActiveManager
 from Empresas.models import Empresa
 from Usuarios.models import Usuario
@@ -8,32 +10,38 @@ from Solicitudes.models import Solicitud
 
 
 class PedidoManager(models.Manager):
-    """Manager personalizado para Pedido con consultas específicas"""
-
     def pendientes_pago(self):
-        return self.filter(estado=True, estado_pedido='PENDIENTE_PAGO')
+        from Pedidos.models import Pedido
+        return self.filter(estado=True, estado_pedido=Pedido.Estados.PENDIENTE_PAGO)
 
     def pago_confirmado(self):
-        return self.filter(estado=True, estado_pedido='PAGO_CONFIRMADO')
+        from Pedidos.models import Pedido
+        return self.filter(estado=True, estado_pedido=Pedido.Estados.PAGO_CONFIRMADO)
 
     def en_despacho(self):
-        return self.filter(estado=True, estado_pedido='EN_DESPACHO')
+        from Pedidos.models import Pedido
+        return self.filter(estado=True, estado_pedido=Pedido.Estados.EN_DESPACHO)
 
     def completados(self):
-        return self.filter(estado=True, estado_pedido='COMPLETADO')
+        from Pedidos.models import Pedido
+        return self.filter(estado=True, estado_pedido=Pedido.Estados.COMPLETADO)
 
     def cancelados(self):
-        return self.filter(estado=True, estado_pedido='CANCELADO')
+        from Pedidos.models import Pedido
+        return self.filter(estado=True, estado_pedido=Pedido.Estados.CANCELADO)
 
 
 class Pedido(BaseModel):
-    ESTADOS_PEDIDO = [
-        ('PENDIENTE_PAGO', 'Pendiente de Pago'),
-        ('PAGO_CONFIRMADO', 'Pago Confirmado'),
-        ('EN_DESPACHO', 'En Despacho'),
-        ('COMPLETADO', 'Completado'),
-        ('CANCELADO', 'Cancelado'),
-    ]
+    class Estados(models.TextChoices):
+        PENDIENTE_PAGO = 'PENDIENTE_PAGO', 'Pendiente de Pago'
+        PAGO_CONFIRMADO = 'PAGO_CONFIRMADO', 'Pago Confirmado'
+        EN_DESPACHO = 'EN_DESPACHO', 'En Despacho'
+        COMPLETADO = 'COMPLETADO', 'Completado'
+        CANCELADO = 'CANCELADO', 'Cancelado'
+
+    class TiposPago(models.TextChoices):
+        INMEDIATO = 'INMEDIATO', 'Pago Inmediato'
+        DIFERIDO = 'DIFERIDO', 'Pago Diferido'
 
     solicitud = models.ForeignKey(
         Solicitud,
@@ -55,8 +63,8 @@ class Pedido(BaseModel):
     )
     estado_pedido = models.CharField(
         max_length=30,
-        choices=ESTADOS_PEDIDO,
-        default='PENDIENTE_PAGO',
+        choices=Estados.choices,
+        default=Estados.PENDIENTE_PAGO,
         verbose_name='Estado del pedido'
     )
     numero_orden = models.CharField(
@@ -73,6 +81,35 @@ class Pedido(BaseModel):
         null=True,
         blank=True,
         verbose_name='Fecha de completado'
+    )
+
+    tipo_pago = models.CharField(
+        max_length=20,
+        choices=TiposPago.choices,
+        default=TiposPago.INMEDIATO,
+        verbose_name='Tipo de pago'
+    )
+    fecha_limite_pago = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha límite de pago'
+    )
+    pago_diferido_aprobado = models.BooleanField(
+        default=False,
+        verbose_name='Pago diferido aprobado'
+    )
+    aprobador_pago_diferido = models.ForeignKey(
+        Usuario,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='pagos_diferidos_aprobados',
+        verbose_name='Aprobador pago diferido'
+    )
+    fecha_aprobacion_pago_diferido = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de aprobación pago diferido'
     )
 
     objects = PedidoManager()
@@ -97,15 +134,28 @@ class Pedido(BaseModel):
 
     @property
     def esta_completado(self):
-        return self.estado_pedido == 'COMPLETADO'
+        return self.estado_pedido == Pedido.Estados.COMPLETADO
 
     @property
     def puede_editarse(self):
-        return self.estado_pedido in ['PENDIENTE_PAGO']
+        return self.estado_pedido in [Pedido.Estados.PENDIENTE_PAGO]
 
     @property
     def puede_cancelarse(self):
-        return self.estado_pedido in ['PENDIENTE_PAGO', 'PAGO_CONFIRMADO']
+        return self.estado_pedido in [Pedido.Estados.PENDIENTE_PAGO, Pedido.Estados.PAGO_CONFIRMADO]
+
+    @property
+    def dias_para_vencimiento(self):
+        if self.tipo_pago == Pedido.TiposPago.DIFERIDO and self.fecha_limite_pago:
+            dias = (self.fecha_limite_pago - timezone.now()).days
+            return dias
+        return None
+
+    @property
+    def pago_vencido(self):
+        if self.tipo_pago == Pedido.TiposPago.DIFERIDO and self.fecha_limite_pago:
+            return timezone.now() > self.fecha_limite_pago
+        return False
 
 
 class DetallePedido(BaseModel):

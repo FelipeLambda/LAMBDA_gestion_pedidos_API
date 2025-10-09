@@ -4,7 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Productos.models import Categoria
 from Productos.serializers import CategoriaSerializer
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, manejar_errores_db
+from Usuarios.models import Grupos
 
 class CategoriaListCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -17,7 +18,7 @@ class CategoriaListCreateAPIView(APIView):
         serializer = CategoriaSerializer(categorias, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     def post(self, request):
         """
         Crea una nueva categoría.
@@ -47,7 +48,7 @@ class CategoriaDetailAPIView(APIView):
         except Categoria.DoesNotExist:
             return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -66,7 +67,7 @@ class CategoriaDetailAPIView(APIView):
         except Categoria.DoesNotExist:
             return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
-    @requiere_admin_sistema
+    @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def delete(self, request, pk):
         """
