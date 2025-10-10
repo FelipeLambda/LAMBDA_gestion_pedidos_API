@@ -18,6 +18,8 @@ from LAMBDA_gestion_pedidos_API.utils import (
 )
 from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
 from Usuarios.models import Grupos
+from Usuarios.services.email_service import EmailService
+from Reportes.utils_pdf import FacturaPDFGenerator
 
 
 class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
@@ -187,7 +189,6 @@ class ActualizarEstadoPedidoAPIView(APIView):
                 pedido.fecha_completado = timezone.now()
 
             # Al confirmar pago: liberar reserva y descontar stock disponible
-            # Flujo: RESERVA -> LIBERACION_RESERVA + SALIDA (mantiene trazabilidad completa)
             if nuevo_estado == Pedido.Estados.PAGO_CONFIRMADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
                 from Inventario.models import MovimientoInventario
                 for detalle in pedido.detalles.filter(estado=True):
@@ -210,6 +211,12 @@ class ActualizarEstadoPedidoAPIView(APIView):
                         usuario_responsable=request.user,
                         observaciones=f'Salida por pedido confirmado - {pedido.numero_orden}'
                     )
+
+                pedido.save()
+                generator = FacturaPDFGenerator(pedido)
+                pdf_bytes = generator.generar(como_respuesta=False)
+                EmailService.enviar_factura_pdf(pedido, pdf_bytes)
+                pedido.factura_enviada = True
 
             # Al cancelar pedido pendiente de pago: liberar reservas de stock
             if nuevo_estado == Pedido.Estados.CANCELADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
@@ -269,3 +276,60 @@ class EditarPedidoAPIView(APIView):
                 {'error': 'Pedido no encontrado'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class DescargarFacturaPDFAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk, estado=True)
+
+            puede_ver, mensaje_error = self.puede_ver_recurso(request.user, pedido)
+            if not puede_ver:
+                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+
+            if pedido.estado_pedido not in [Pedido.Estados.PAGO_CONFIRMADO, Pedido.Estados.EN_DESPACHO, Pedido.Estados.COMPLETADO]:
+                return Response(
+                    {'error': 'Solo se puede descargar factura de pedidos con pago confirmado'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            generator = FacturaPDFGenerator(pedido)
+            return generator.generar(como_respuesta=True)
+
+        except Pedido.DoesNotExist:
+            return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReenviarFacturaAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @manejar_errores_db
+    def post(self, request, pk):
+        try:
+            pedido = Pedido.objects.get(pk=pk, estado=True)
+
+            puede_ver, mensaje_error = self.puede_ver_recurso(request.user, pedido)
+            if not puede_ver:
+                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+
+            if pedido.estado_pedido not in [Pedido.Estados.PAGO_CONFIRMADO, Pedido.Estados.EN_DESPACHO, Pedido.Estados.COMPLETADO]:
+                return Response(
+                    {'error': 'Solo se puede enviar factura de pedidos con pago confirmado'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            generator = FacturaPDFGenerator(pedido)
+            pdf_bytes = generator.generar(como_respuesta=False)
+            EmailService.enviar_factura_pdf(pedido, pdf_bytes)
+
+            pedido.factura_enviada = True
+            pedido.save()
+
+            return Response({
+                'mensaje': 'Factura reenviada exitosamente'
+            }, status=status.HTTP_200_OK)
+
+        except Pedido.DoesNotExist:
+            return Response({'error': 'Pedido no encontrado'}, status=status.HTTP_404_NOT_FOUND)

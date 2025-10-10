@@ -3,7 +3,9 @@ from .pedidos import (
     PedidoDetailAPIView,
     CrearPedidoDesdeSolicitudAPIView,
     ActualizarEstadoPedidoAPIView,
-    EditarPedidoAPIView
+    EditarPedidoAPIView,
+    DescargarFacturaPDFAPIView,
+    ReenviarFacturaAPIView
 )
 
 __all__ = [
@@ -12,4 +14,6 @@ __all__ = [
     'CrearPedidoDesdeSolicitudAPIView',
     'ActualizarEstadoPedidoAPIView',
     'EditarPedidoAPIView',
+    'DescargarFacturaPDFAPIView',
+    'ReenviarFacturaAPIView',
 ]

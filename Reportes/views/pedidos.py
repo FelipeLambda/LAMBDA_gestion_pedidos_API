@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from Pedidos.models import Pedido
 from Reportes.serializers import FiltroReportePedidosSerializer
 from Reportes.utils import ReporteExcelGenerator, ReporteCSVGenerator
+from Reportes.utils_pdf import ReportePDFGenerator
 from LAMBDA_gestion_pedidos_API.utils import requiere_grupos
 from Usuarios.models import Grupos
 
@@ -77,6 +78,8 @@ class ExportarPedidosAPIView(APIView):
 
         if formato == 'csv':
             generator = ReporteCSVGenerator('Reporte_Pedidos', headers, datos)
+        elif formato == 'pdf':
+            generator = ReportePDFGenerator('Reporte de Pedidos', headers, datos, orientacion='landscape')
         else:
             generator = ReporteExcelGenerator('Reporte_Pedidos', headers, datos)
 

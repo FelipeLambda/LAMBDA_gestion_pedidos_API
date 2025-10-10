@@ -6,6 +6,7 @@ from Inventario.models import MovimientoInventario
 from Productos.models import Producto
 from Reportes.serializers import FiltroReporteInventarioSerializer, FiltroReporteSerializer
 from Reportes.utils import ReporteExcelGenerator, ReporteCSVGenerator
+from Reportes.utils_pdf import ReportePDFGenerator
 from LAMBDA_gestion_pedidos_API.utils import requiere_grupos
 from Usuarios.models import Grupos
 
@@ -69,6 +70,8 @@ class ExportarInventarioAPIView(APIView):
 
         if formato == 'csv':
             generator = ReporteCSVGenerator('Reporte_Inventario', headers, datos)
+        elif formato == 'pdf':
+            generator = ReportePDFGenerator('Reporte de Movimientos de Inventario', headers, datos, orientacion='landscape')
         else:
             generator = ReporteExcelGenerator('Reporte_Inventario', headers, datos)
 
@@ -120,6 +123,8 @@ class ExportarStockProductosAPIView(APIView):
 
         if formato == 'csv':
             generator = ReporteCSVGenerator('Reporte_Stock_Productos', headers, datos)
+        elif formato == 'pdf':
+            generator = ReportePDFGenerator('Reporte de Stock de Productos', headers, datos)
         else:
             generator = ReporteExcelGenerator('Reporte_Stock_Productos', headers, datos)
 

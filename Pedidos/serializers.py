@@ -60,12 +60,15 @@ class PedidoSerializer(serializers.ModelSerializer):
             'empresa', 'empresa_nombre',
             'solicitante', 'solicitante_nombre', 'solicitante_email',
             'estado_pedido', 'observaciones', 'fecha_completado',
+            'tipo_pago', 'fecha_limite_pago', 'pago_diferido_aprobado',
+            'factura_enviada',
             'detalles', 'total', 'cantidad_items',
             'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
         read_only_fields = [
             'id', 'numero_orden', 'solicitante', 'empresa',
-            'fecha_completado', 'fecha_creacion', 'fecha_actualizacion'
+            'fecha_completado', 'fecha_creacion', 'fecha_actualizacion',
+            'factura_enviada'
         ]
 
 

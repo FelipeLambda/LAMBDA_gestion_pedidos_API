@@ -4,7 +4,9 @@ from .views import (
     PedidoDetailAPIView,
     CrearPedidoDesdeSolicitudAPIView,
     ActualizarEstadoPedidoAPIView,
-    EditarPedidoAPIView
+    EditarPedidoAPIView,
+    DescargarFacturaPDFAPIView,
+    ReenviarFacturaAPIView
 )
 
 urlpatterns = [
@@ -13,4 +15,6 @@ urlpatterns = [
     path('api/pedidos/crear', CrearPedidoDesdeSolicitudAPIView.as_view(), name='crearPedidoDesdeSolicitud'),
     path('api/pedidos/<int:pk>/estado', ActualizarEstadoPedidoAPIView.as_view(), name='actualizarEstadoPedido'),
     path('api/pedidos/<int:pk>/editar', EditarPedidoAPIView.as_view(), name='editarPedido'),
+    path('api/pedidos/<int:pk>/factura', DescargarFacturaPDFAPIView.as_view(), name='descargarFacturaPDF'),
+    path('api/pedidos/<int:pk>/reenviarFactura', ReenviarFacturaAPIView.as_view(), name='reenviarFactura'),
 ]

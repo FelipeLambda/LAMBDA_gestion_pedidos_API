@@ -6,7 +6,7 @@ class FiltroReporteSerializer(serializers.Serializer):
     fecha_hasta = serializers.DateField(required=False, help_text='Fecha de fin (YYYY-MM-DD)')
     empresa_id = serializers.IntegerField(required=False, help_text='ID de la empresa')
     formato = serializers.ChoiceField(
-        choices=['excel', 'csv'],
+        choices=['excel', 'csv', 'pdf'],
         default='excel',
         help_text='Formato de exportación'
     )

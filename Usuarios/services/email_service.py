@@ -1,6 +1,7 @@
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
+from datetime import datetime
 
 
 class EmailService:
@@ -80,3 +81,22 @@ class EmailService:
             destinatario=pedido.solicitante.email,
             asunto=asunto
         )
+
+    @classmethod
+    def enviar_factura_pdf(cls, pedido, pdf_bytes):
+        mensaje = render_to_string('emails/factura_pedido.txt', {
+            'pedido': pedido,
+            'solicitante': pedido.solicitante,
+            'empresa': pedido.empresa
+        })
+
+        filename = f"Factura_{pedido.numero_orden}_{datetime.now().strftime('%Y%m%d')}.pdf"
+
+        email = EmailMessage(
+            subject=f'Factura de Compra - {pedido.numero_orden}',
+            body=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[pedido.solicitante.email]
+        )
+        email.attach(filename, pdf_bytes, 'application/pdf')
+        email.send(fail_silently=False)

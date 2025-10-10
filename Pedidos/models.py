@@ -111,6 +111,10 @@ class Pedido(BaseModel):
         blank=True,
         verbose_name='Fecha de aprobación pago diferido'
     )
+    factura_enviada = models.BooleanField(
+        default=False,
+        verbose_name='Factura enviada'
+    )
 
     objects = PedidoManager()
     activos = ActiveManager()
