@@ -4,10 +4,15 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Productos.models import Categoria
 from Productos.serializers import CategoriaSerializer
-from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import (
+    requiere_grupos,
+    ObjetoDetailMixin,
+    SerializerValidationMixin,
+    manejar_errores_db
+)
 from Usuarios.models import Grupos
 
-class CategoriaListCreateAPIView(APIView):
+class CategoriaListCreateAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -24,16 +29,18 @@ class CategoriaListCreateAPIView(APIView):
         Crea una nueva categoría.
         """
         serializer = CategoriaSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'mensaje': 'Categoría creada exitosamente',
-                'categoria': serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        serializer.save()
+        return Response({
+            'mensaje': 'Categoría creada exitosamente',
+            'categoria': serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 
-class CategoriaDetailAPIView(APIView):
+class CategoriaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @manejar_errores_db
@@ -41,12 +48,12 @@ class CategoriaDetailAPIView(APIView):
         """
         Obtiene el detalle de una categoría.
         """
-        try:
-            categoria = Categoria.objects.get(pk=pk)
-            serializer = CategoriaSerializer(categoria)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Categoria.DoesNotExist:
-            return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        categoria, error = self.obtener_objeto_o_404(Categoria, pk)
+        if error:
+            return error
+
+        serializer = CategoriaSerializer(categoria)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
@@ -54,18 +61,20 @@ class CategoriaDetailAPIView(APIView):
         """
         Actualiza una categoría.
         """
-        try:
-            categoria = Categoria.objects.get(pk=pk)
-            serializer = CategoriaSerializer(categoria, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({
-                    'mensaje': 'Categoría actualizada exitosamente',
-                    'categoria': serializer.data
-                }, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Categoria.DoesNotExist:
-            return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        categoria, error = self.obtener_objeto_o_404(Categoria, pk)
+        if error:
+            return error
+
+        serializer = CategoriaSerializer(categoria, data=request.data, partial=True)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        serializer.save()
+        return Response({
+            'mensaje': 'Categoría actualizada exitosamente',
+            'categoria': serializer.data
+        }, status=status.HTTP_200_OK)
 
     @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
@@ -73,11 +82,11 @@ class CategoriaDetailAPIView(APIView):
         """
         Desactiva una categoría (soft delete).
         """
-        try:
-            categoria = Categoria.objects.get(pk=pk)
-            categoria.soft_delete()
-            return Response({
-                'mensaje': 'Categoría desactivada exitosamente'
-            }, status=status.HTTP_200_OK)
-        except Categoria.DoesNotExist:
-            return Response({'error': 'Categoría no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        categoria, error = self.obtener_objeto_o_404(Categoria, pk)
+        if error:
+            return error
+
+        categoria.soft_delete()
+        return Response({
+            'mensaje': 'Categoría desactivada exitosamente'
+        }, status=status.HTTP_200_OK)

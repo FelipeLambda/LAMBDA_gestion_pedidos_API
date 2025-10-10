@@ -5,11 +5,15 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Solicitudes.models import Solicitud
 from Solicitudes.serializers import SolicitudSerializer, ValidarSolicitudSerializer
-from LAMBDA_gestion_pedidos_API.utils import manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import (
+    manejar_errores_db,
+    ObjetoDetailMixin,
+    SerializerValidationMixin
+)
 from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_permiso
 
 
-class ValidarSolicitudBaseAPIView(APIView):
+class ValidarSolicitudBaseAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     """
     Clase base abstracta para validaciones de solicitudes.
     """
@@ -24,42 +28,41 @@ class ValidarSolicitudBaseAPIView(APIView):
     mensaje_rechazado = None
 
     def validar_solicitud(self, request, pk):
-        try:
-            solicitud = Solicitud.objects.get(pk=pk)
+        solicitud, error = self.obtener_objeto_o_404(Solicitud, pk, usar_soft_delete=False)
+        if error:
+            return error
 
-            if solicitud.estado_solicitud != self.estado_requerido:
-                return Response(
-                    {'error': f'La solicitud debe estar en estado {self.get_nombre_estado_requerido()}. Estado actual: {solicitud.get_estado_solicitud_display()}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if solicitud.estado_solicitud != self.estado_requerido:
+            return Response(
+                {'error': f'La solicitud debe estar en estado {self.get_nombre_estado_requerido()}. Estado actual: {solicitud.get_estado_solicitud_display()}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-            serializer = ValidarSolicitudSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = ValidarSolicitudSerializer(data=request.data)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
-            aprobado = serializer.validated_data['aprobado']
-            observaciones = serializer.validated_data.get('observaciones', '')
+        aprobado = serializer.validated_data['aprobado']
+        observaciones = serializer.validated_data.get('observaciones', '')
 
-            setattr(solicitud, self.validador_field, request.user)
-            setattr(solicitud, self.fecha_validacion_field, timezone.now())
-            setattr(solicitud, self.observaciones_field, observaciones)
+        setattr(solicitud, self.validador_field, request.user)
+        setattr(solicitud, self.fecha_validacion_field, timezone.now())
+        setattr(solicitud, self.observaciones_field, observaciones)
 
-            if aprobado:
-                solicitud.estado_solicitud = self.estado_aprobado
-                mensaje = self.mensaje_aprobado
-            else:
-                solicitud.estado_solicitud = Solicitud.Estados.RECHAZADA
-                mensaje = self.mensaje_rechazado
+        if aprobado:
+            solicitud.estado_solicitud = self.estado_aprobado
+            mensaje = self.mensaje_aprobado
+        else:
+            solicitud.estado_solicitud = Solicitud.Estados.RECHAZADA
+            mensaje = self.mensaje_rechazado
 
-            solicitud.save()
+        solicitud.save()
 
-            return Response({
-                'mensaje': mensaje,
-                'solicitud': SolicitudSerializer(solicitud).data
-            }, status=status.HTTP_200_OK)
-
-        except Solicitud.DoesNotExist:
-            return Response({'error': 'Solicitud no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'mensaje': mensaje,
+            'solicitud': SolicitudSerializer(solicitud).data
+        }, status=status.HTTP_200_OK)
 
     def get_nombre_estado_requerido(self):
         return Solicitud.Estados(self.estado_requerido).label

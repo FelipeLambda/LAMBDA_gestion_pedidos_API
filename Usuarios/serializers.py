@@ -32,6 +32,18 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Las contraseñas no coinciden."})
+
+        if not attrs.get('empresa'):
+            raise serializers.ValidationError({
+                "empresa": "La empresa es obligatoria para crear usuarios."
+            })
+
+        if attrs.get('area') and attrs.get('empresa'):
+            if attrs['area'].empresa != attrs['empresa']:
+                raise serializers.ValidationError({
+                    "area": "El área debe pertenecer a la empresa seleccionada."
+                })
+
         return attrs
 
     def create(self, validated_data):

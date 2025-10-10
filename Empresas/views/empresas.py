@@ -8,11 +8,16 @@ from rest_framework.permissions import IsAuthenticated
 from Empresas.models import Empresa
 from Empresas.serializers import EmpresaSerializer
 from Usuarios.services import EmailService
-from LAMBDA_gestion_pedidos_API.utils import requiere_grupos, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import (
+    requiere_grupos,
+    ObjetoDetailMixin,
+    SerializerValidationMixin,
+    manejar_errores_db
+)
 from Usuarios.models import Grupos
 
 
-class EmpresaListCreateAPIView(APIView):
+class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
@@ -24,46 +29,50 @@ class EmpresaListCreateAPIView(APIView):
     @requiere_grupos(Grupos.ADMIN_SISTEMA)
     def post(self, request):
         serializer = EmpresaSerializer(data=request.data)
-        if serializer.is_valid():
-            empresa = serializer.save()
-            token = secrets.token_urlsafe(32)
-            empresa.token_activacion = token
-            empresa.token_expiracion = timezone.now() + timedelta(days=7)
-            empresa.save()
-            EmailService.enviar_email_activacion_empresa(empresa, token)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
-            return Response({
-                'mensaje': 'Empresa creada exitosamente. Se ha enviado un correo de activación.',
-                'empresa': serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        empresa = serializer.save()
+        token = secrets.token_urlsafe(32)
+        empresa.token_activacion = token
+        empresa.token_expiracion = timezone.now() + timedelta(days=7)
+        empresa.save()
+        EmailService.enviar_email_activacion_empresa(empresa, token)
+
+        return Response({
+            'mensaje': 'Empresa creada exitosamente. Se ha enviado un correo de activación.',
+            'empresa': serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 
-class EmpresaDetailAPIView(APIView):
+class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def get(self, request, pk):
-        try:
-            empresa = Empresa.objects.get(pk=pk)
-            serializer = EmpresaSerializer(empresa)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Empresa.DoesNotExist:
-            return Response({'error': 'Empresa no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        empresa, error = self.obtener_objeto_o_404(Empresa, pk)
+        if error:
+            return error
+
+        serializer = EmpresaSerializer(empresa)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def put(self, request, pk):
-        try:
-            empresa = Empresa.objects.get(pk=pk)
-            serializer = EmpresaSerializer(empresa, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({
-                    'mensaje': 'Empresa actualizada exitosamente',
-                    'empresa': serializer.data
-                }, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Empresa.DoesNotExist:
-            return Response({'error': 'Empresa no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        empresa, error = self.obtener_objeto_o_404(Empresa, pk)
+        if error:
+            return error
+
+        serializer = EmpresaSerializer(empresa, data=request.data, partial=True)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        serializer.save()
+        return Response({
+            'mensaje': 'Empresa actualizada exitosamente',
+            'empresa': serializer.data
+        }, status=status.HTTP_200_OK)

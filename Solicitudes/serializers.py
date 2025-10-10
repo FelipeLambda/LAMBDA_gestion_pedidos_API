@@ -73,6 +73,21 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
         model = Solicitud
         fields = ['empresa', 'area', 'observaciones', 'detalles']
 
+    def validate(self, attrs):
+        usuario = self.context['request'].user
+        if not usuario.is_superuser and not usuario.empresa:
+            raise serializers.ValidationError({
+                "empresa": "Su usuario no tiene empresa asignada. Contacte al administrador."
+            })
+
+        if attrs.get('area') and attrs.get('empresa'):
+            if attrs['area'].empresa != attrs['empresa']:
+                raise serializers.ValidationError({
+                    "area": "El área debe pertenecer a la empresa seleccionada."
+                })
+
+        return attrs
+
     def validate_empresa(self, value):
         from django.contrib.auth.models import Group
         from Usuarios.models import Grupos

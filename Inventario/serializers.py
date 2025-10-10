@@ -46,8 +46,15 @@ class RegistrarMovimientoSerializer(serializers.ModelSerializer):
         }
 
     def validate_tipo_movimiento(self, value):
-        if value not in [MovimientoInventario.TiposMovimiento.ENTRADA, MovimientoInventario.TiposMovimiento.SALIDA]:
-            raise serializers.ValidationError("Solo se permiten movimientos de tipo ENTRADA o SALIDA.")
+        T = MovimientoInventario.TiposMovimiento
+        tipos_manuales = [
+            T.COMPRA_PROVEEDOR, T.DEVOLUCION_CLIENTE, T.AJUSTE_POSITIVO, T.CORRECCION_ERROR,
+            T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO
+        ]
+        if value not in tipos_manuales:
+            raise serializers.ValidationError(
+                "Solo se permiten movimientos manuales. Las reservas se crean automáticamente."
+            )
         return value
 
     def validate_producto(self, value):
@@ -60,7 +67,10 @@ class RegistrarMovimientoSerializer(serializers.ModelSerializer):
         producto = attrs.get('producto')
         cantidad = attrs.get('cantidad')
 
-        if tipo == MovimientoInventario.TiposMovimiento.SALIDA:
+        T = MovimientoInventario.TiposMovimiento
+        tipos_salida = [T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO]
+
+        if tipo in tipos_salida:
             if not producto.tiene_stock_suficiente(cantidad):
                 raise serializers.ValidationError({
                     "cantidad": f"Stock insuficiente. Disponible: {producto.stock_disponible_real}, Solicitado: {cantidad}"

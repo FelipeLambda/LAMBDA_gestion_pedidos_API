@@ -24,8 +24,16 @@ class MovimientoInventarioManager(models.Manager):
 
 class MovimientoInventario(BaseModel):
     class TiposMovimiento(models.TextChoices):
-        ENTRADA = 'ENTRADA', 'Entrada de Stock'
-        SALIDA = 'SALIDA', 'Salida de Stock'
+        COMPRA_PROVEEDOR = 'COMPRA_PROVEEDOR', 'Compra a Proveedor'
+        DEVOLUCION_CLIENTE = 'DEVOLUCION_CLIENTE', 'Devolución de Cliente'
+        AJUSTE_POSITIVO = 'AJUSTE_POSITIVO', 'Ajuste Positivo'
+        CORRECCION_ERROR = 'CORRECCION_ERROR', 'Corrección de Error'
+
+        VENTA = 'VENTA', 'Venta'
+        MERMA = 'MERMA', 'Merma/Deterioro'
+        DANO = 'DANO', 'Producto Dañado'
+        AJUSTE_NEGATIVO = 'AJUSTE_NEGATIVO', 'Ajuste Negativo'
+
         RESERVA = 'RESERVA', 'Reserva de Stock'
         LIBERACION_RESERVA = 'LIBERACION_RESERVA', 'Liberación de Reserva'
 
@@ -78,7 +86,10 @@ class MovimientoInventario(BaseModel):
     @property
     def afecta_stock_disponible(self):
         T = MovimientoInventario.TiposMovimiento
-        return self.tipo_movimiento in [T.ENTRADA, T.SALIDA]
+        return self.tipo_movimiento in [
+            T.COMPRA_PROVEEDOR, T.DEVOLUCION_CLIENTE, T.AJUSTE_POSITIVO, T.CORRECCION_ERROR,
+            T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO
+        ]
 
     @property
     def afecta_stock_reservado(self):
@@ -88,9 +99,14 @@ class MovimientoInventario(BaseModel):
     @property
     def es_incremento(self):
         T = MovimientoInventario.TiposMovimiento
-        return self.tipo_movimiento in [T.ENTRADA, T.LIBERACION_RESERVA]
+        return self.tipo_movimiento in [
+            T.COMPRA_PROVEEDOR, T.DEVOLUCION_CLIENTE, T.AJUSTE_POSITIVO,
+            T.CORRECCION_ERROR, T.LIBERACION_RESERVA
+        ]
 
     @property
     def es_decremento(self):
         T = MovimientoInventario.TiposMovimiento
-        return self.tipo_movimiento in [T.SALIDA, T.RESERVA]
+        return self.tipo_movimiento in [
+            T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO, T.RESERVA
+        ]

@@ -11,19 +11,25 @@ from Pagos.serializers import (
 )
 from Pedidos.models import Pedido
 from Pagos.models import Pago
-from LAMBDA_gestion_pedidos_API.utils import manejar_errores_db, requiere_grupos
+from LAMBDA_gestion_pedidos_API.utils import (
+    manejar_errores_db,
+    requiere_grupos,
+    ObjetoDetailMixin,
+    SerializerValidationMixin
+)
 from Usuarios.models import Grupos
 
 
-class RegistrarPagoAPIView(APIView):
+class RegistrarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def post(self, request):
         serializer = RegistrarPagoSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
         pedido_id = serializer.validated_data['pedido_id']
         monto = serializer.validated_data['monto']
@@ -32,51 +38,46 @@ class RegistrarPagoAPIView(APIView):
         fecha_pago = serializer.validated_data['fecha_pago']
         observaciones = serializer.validated_data.get('observaciones', '')
 
-        try:
-            pedido = Pedido.objects.get(pk=pedido_id, estado=True)
+        pedido, error = self.obtener_objeto_o_404(Pedido, pedido_id)
+        if error:
+            return error
 
-            usuario = request.user
-            if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
-                if pedido.empresa != usuario.empresa:
-                    return Response(
-                        {'error': 'No tiene permisos para registrar pagos de otras empresas'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            if pedido.empresa != usuario.empresa:
+                return Response(
+                    {'error': 'No tiene permisos para registrar pagos de otras empresas'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-            total_pagado = pedido.pagos.filter(
-                estado=True,
-                estado_pago__in=[Pago.Estados.COMPLETADO, Pago.Estados.PARCIAL]
-            ).aggregate(total=Pago.objects.model.Sum('monto'))['total'] or 0
+        total_pagado = pedido.pagos.filter(
+            estado=True,
+            estado_pago__in=[Pago.Estados.COMPLETADO, Pago.Estados.PARCIAL]
+        ).aggregate(total=Pago.objects.model.Sum('monto'))['total'] or 0
 
-            monto_pendiente = pedido.total - total_pagado
+        monto_pendiente = pedido.total - total_pagado
 
-            if abs(monto - monto_pendiente) < 0.01:
-                estado_pago = Pago.Estados.COMPLETADO
-            elif monto < monto_pendiente:
-                estado_pago = Pago.Estados.PARCIAL
-            else:
-                estado_pago = Pago.Estados.PENDIENTE
+        if abs(monto - monto_pendiente) < 0.01:
+            estado_pago = Pago.Estados.COMPLETADO
+        elif monto < monto_pendiente:
+            estado_pago = Pago.Estados.PARCIAL
+        else:
+            estado_pago = Pago.Estados.PENDIENTE
 
-            pago = Pago.objects.create(
-                pedido=pedido,
-                monto=monto,
-                estado_pago=estado_pago,
-                metodo_pago=metodo_pago,
-                referencia_pago=referencia_pago,
-                fecha_pago=fecha_pago,
-                observaciones=observaciones
-            )
+        pago = Pago.objects.create(
+            pedido=pedido,
+            monto=monto,
+            estado_pago=estado_pago,
+            metodo_pago=metodo_pago,
+            referencia_pago=referencia_pago,
+            fecha_pago=fecha_pago,
+            observaciones=observaciones
+        )
 
-            return Response({
-                'mensaje': 'Pago registrado exitosamente',
-                'pago': PagoSerializer(pago).data
-            }, status=status.HTTP_201_CREATED)
-
-        except Pedido.DoesNotExist:
-            return Response(
-                {'error': 'Pedido no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        return Response({
+            'mensaje': 'Pago registrado exitosamente',
+            'pago': PagoSerializer(pago).data
+        }, status=status.HTTP_201_CREATED)
 
 
 class ListarPagosAPIView(APIView):
@@ -107,81 +108,72 @@ class ListarPagosAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class PagoDetailAPIView(APIView):
+class PagoDetailAPIView(ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     def get(self, request, pk):
-        try:
-            pago = Pago.objects.select_related('pedido', 'validado_por').get(pk=pk, estado=True)
+        pago, error = self.obtener_objeto_o_404(Pago, pk)
+        if error:
+            return error
 
-            usuario = request.user
-            if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
-                if pago.pedido.empresa != usuario.empresa:
-                    return Response(
-                        {'error': 'No tiene permisos para ver pagos de otras empresas'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            if pago.pedido.empresa != usuario.empresa:
+                return Response(
+                    {'error': 'No tiene permisos para ver pagos de otras empresas'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-            serializer = PagoSerializer(pago)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        except Pago.DoesNotExist:
-            return Response(
-                {'error': 'Pago no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        serializer = PagoSerializer(pago)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class ValidarPagoAPIView(APIView):
+class ValidarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def patch(self, request, pk):
-        try:
-            pago = Pago.objects.get(pk=pk, estado=True)
+        pago, error = self.obtener_objeto_o_404(Pago, pk)
+        if error:
+            return error
 
-            if pago.estado_pago in [Pago.Estados.COMPLETADO, Pago.Estados.RECHAZADO]:
-                return Response(
-                    {'error': 'Este pago ya fue validado'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            serializer = ValidarPagoSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-            nuevo_estado = serializer.validated_data['estado_pago']
-            observaciones_adicionales = serializer.validated_data.get('observaciones', '')
-
-            pago.estado_pago = nuevo_estado
-            pago.validado_por = request.user
-
-            if observaciones_adicionales:
-                pago.observaciones = f"{pago.observaciones or ''}\n\n{observaciones_adicionales}"
-
-            pago.save()
-
-            if nuevo_estado == Pago.Estados.COMPLETADO:
-                pedido = pago.pedido
-                total_pagado = pedido.pagos.filter(
-                    estado=True,
-                    estado_pago=Pago.Estados.COMPLETADO
-                ).aggregate(total=Pago.objects.model.Sum('monto'))['total'] or 0
-
-                if abs(total_pagado - pedido.total) < 0.01:
-                    if pedido.estado_pedido == Pedido.Estados.PENDIENTE_PAGO:
-                        pedido.estado_pedido = Pedido.Estados.PAGO_CONFIRMADO
-                        pedido.save()
-
-            return Response({
-                'mensaje': f'Pago {nuevo_estado.lower()} exitosamente',
-                'pago': PagoSerializer(pago).data
-            }, status=status.HTTP_200_OK)
-
-        except Pago.DoesNotExist:
+        if pago.estado_pago in [Pago.Estados.COMPLETADO, Pago.Estados.RECHAZADO]:
             return Response(
-                {'error': 'Pago no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
+                {'error': 'Este pago ya fue validado'},
+                status=status.HTTP_400_BAD_REQUEST
             )
+
+        serializer = ValidarPagoSerializer(data=request.data)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        nuevo_estado = serializer.validated_data['estado_pago']
+        observaciones_adicionales = serializer.validated_data.get('observaciones', '')
+
+        pago.estado_pago = nuevo_estado
+        pago.validado_por = request.user
+
+        if observaciones_adicionales:
+            pago.observaciones = f"{pago.observaciones or ''}\n\n{observaciones_adicionales}"
+
+        pago.save()
+
+        if nuevo_estado == Pago.Estados.COMPLETADO:
+            pedido = pago.pedido
+            total_pagado = pedido.pagos.filter(
+                estado=True,
+                estado_pago=Pago.Estados.COMPLETADO
+            ).aggregate(total=Pago.objects.model.Sum('monto'))['total'] or 0
+
+            if abs(total_pagado - pedido.total) < 0.01:
+                if pedido.estado_pedido == Pedido.Estados.PENDIENTE_PAGO:
+                    pedido.estado_pedido = Pedido.Estados.PAGO_CONFIRMADO
+                    pedido.save()
+
+        return Response({
+            'mensaje': f'Pago {nuevo_estado.lower()} exitosamente',
+            'pago': PagoSerializer(pago).data
+        }, status=status.HTTP_200_OK)
