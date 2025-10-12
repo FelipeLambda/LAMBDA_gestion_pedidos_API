@@ -81,3 +81,30 @@ class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
             'mensaje': 'Usuario actualizado exitosamente',
             'usuario': serializer.data
         }, status=status.HTTP_200_OK)
+
+class RegenerarTokenUsuarioAPIView(ObjetoDetailMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    def post(self, request, pk):
+        usuario, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
+        if error:
+            return error
+
+        if usuario.is_active:
+            return Response(
+                {'error': 'El usuario ya está activo. No se puede regenerar el token.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        token = secrets.token_urlsafe(32)
+        usuario.token_activacion = token
+        usuario.token_expiracion = timezone.now() + timedelta(days=7)
+        usuario.save()
+
+        EmailService.enviar_email_activacion(usuario, token)
+
+        return Response({
+            'mensaje': 'Token regenerado exitosamente. Se ha enviado un nuevo correo de activación.',
+            'token_expiracion': usuario.token_expiracion
+        }, status=status.HTTP_200_OK)

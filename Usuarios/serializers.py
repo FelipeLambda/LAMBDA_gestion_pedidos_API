@@ -38,11 +38,15 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
                 "empresa": "La empresa es obligatoria para crear usuarios."
             })
 
-        if attrs.get('area') and attrs.get('empresa'):
-            if attrs['area'].empresa != attrs['empresa']:
-                raise serializers.ValidationError({
-                    "area": "El área debe pertenecer a la empresa seleccionada."
-                })
+        if not attrs.get('area'):
+            raise serializers.ValidationError({
+                "area": "El área es obligatoria para crear usuarios."
+            })
+
+        if attrs['area'].empresa != attrs['empresa']:
+            raise serializers.ValidationError({
+                "area": "El área debe pertenecer a la empresa seleccionada."
+            })
 
         return attrs
 

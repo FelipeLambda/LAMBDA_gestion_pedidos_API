@@ -15,6 +15,10 @@ class Command(BaseCommand):
             Grupos.SOLICITANTE,
         ]
 
+        self.stdout.write(self.style.WARNING('\n=== GRUPOS PREDEFINIDOS DEL SISTEMA ==='))
+        self.stdout.write('Los grupos son estándar para garantizar seguridad, compliance y flujos uniformes.')
+        self.stdout.write('Ver JUSTIFICACION_GRUPOS_PREDEFINIDOS.md para más detalles.\n')
+
         for nombre_grupo in grupos:
             grupo, created = Group.objects.get_or_create(name=nombre_grupo)
             if created:
@@ -27,5 +31,5 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(
-            self.style.SUCCESS('\nInicializacion de grupos completada!')
+            self.style.SUCCESS('\nInicialización de grupos completada!')
         )

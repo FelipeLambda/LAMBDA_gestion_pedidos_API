@@ -25,6 +25,15 @@ class Empresa(BaseModel):
     def __str__(self):
         return self.nombre.title()
 
+    def tiene_areas_criticas(self):
+        return self.areas.filter(
+            estado=True,
+            es_area_financiera=True
+        ).exists() and self.areas.filter(
+            estado=True,
+            es_area_abastecimiento=True
+        ).exists()
+
 
 class Area(BaseModel):
     nombre = models.CharField(max_length=100, verbose_name='Nombre del área')
@@ -34,6 +43,11 @@ class Area(BaseModel):
         default=False,
         verbose_name='¿Es área financiera?',
         help_text='Marca si esta área corresponde al departamento financiero'
+    )
+    es_area_abastecimiento = models.BooleanField(
+        default=False,
+        verbose_name='¿Es área de abastecimiento?',
+        help_text='Marca si esta área corresponde al departamento de abastecimiento'
     )
 
     class Meta:
@@ -47,6 +61,11 @@ class Area(BaseModel):
                 fields=['empresa'],
                 condition=models.Q(es_area_financiera=True),
                 name='unique_area_financiera_por_empresa'
+            ),
+            models.UniqueConstraint(
+                fields=['empresa'],
+                condition=models.Q(es_area_abastecimiento=True),
+                name='unique_area_abastecimiento_por_empresa'
             )
         ]
 

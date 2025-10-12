@@ -113,6 +113,11 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
         if error:
             return error
 
+        if not solicitud.empresa.tiene_areas_criticas():
+            return Response({
+                'error': 'La empresa debe tener configuradas las áreas financiera y de abastecimiento antes de crear pedidos.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         detalles_solicitud = solicitud.detalles.filter(estado=True)
         for detalle in detalles_solicitud:
             if detalle.cantidad <= 0:
