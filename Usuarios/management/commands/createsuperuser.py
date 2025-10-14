@@ -31,44 +31,47 @@ class Command(createsuperuser.Command):
         empresa_id = options.get('empresa')
         area_id = options.get('area')
 
-        if options.get('interactive'):
-            empresas = Empresa.activos.all()
-            if not empresas.exists():
-                raise CommandError('No hay empresas activas. Crea una empresa primero.')
+        empresas = Empresa.activos.all()
+        if not empresas.exists():
+            raise CommandError('No hay empresas activas. Crea una empresa primero.')
 
-            if not empresa_id:
-                self.stdout.write('\nEmpresas disponibles:')
-                for emp in empresas:
-                    self.stdout.write(f'  [{emp.id}] {emp.nombre}')
-                empresa_id = input('ID de la empresa: ')
-                try:
-                    empresa_id = int(empresa_id)
-                except ValueError:
-                    raise CommandError('ID de empresa inválido')
-
+        if not empresa_id:
+            self.stdout.write('\n=== Empresas disponibles ===')
+            for emp in empresas:
+                self.stdout.write(f'  [{emp.id}] {emp.nombre}')
+            empresa_input = input('\nIngrese el ID de la empresa: ')
             try:
-                empresa = Empresa.objects.get(pk=empresa_id)
-            except Empresa.DoesNotExist:
-                raise CommandError(f'Empresa con ID {empresa_id} no existe')
+                empresa_id = int(empresa_input)
+            except ValueError:
+                raise CommandError('ID de empresa inválido')
 
-            areas = Area.activos.filter(empresa=empresa)
-            if not areas.exists():
-                raise CommandError(f'No hay áreas activas en la empresa {empresa.nombre}. Crea un área primero.')
+        try:
+            empresa = Empresa.objects.get(pk=empresa_id)
+        except Empresa.DoesNotExist:
+            raise CommandError(f'Empresa con ID {empresa_id} no existe')
 
-            if not area_id:
-                self.stdout.write(f'\nÁreas disponibles en {empresa.nombre}:')
-                for a in areas:
-                    self.stdout.write(f'  [{a.id}] {a.nombre}')
-                area_id = input('ID del área: ')
-                try:
-                    area_id = int(area_id)
-                except ValueError:
-                    raise CommandError('ID de área inválido')
 
+        areas = Area.activos.filter(empresa=empresa)
+        if not areas.exists():
+            raise CommandError(f'No hay áreas activas en la empresa {empresa.nombre}. Crea un área primero.')
+
+        if not area_id:
+            self.stdout.write(f'\n=== Áreas disponibles en {empresa.nombre} ===')
+            for a in areas:
+                self.stdout.write(f'  [{a.id}] {a.nombre}')
+            area_input = input('\nIngrese el ID del área: ')
             try:
-                area = Area.objects.get(pk=area_id)
-            except Area.DoesNotExist:
-                raise CommandError(f'Área con ID {area_id} no existe')
+                area_id = int(area_input)
+            except ValueError:
+                raise CommandError('ID de área inválido')
+
+        try:
+            area = Area.objects.get(pk=area_id)
+        except Area.DoesNotExist:
+            raise CommandError(f'Área con ID {area_id} no existe')
+
+        if not cargo:
+            cargo = 'Administrador'
 
         options['empresa_id'] = empresa_id
         options['area_id'] = area_id

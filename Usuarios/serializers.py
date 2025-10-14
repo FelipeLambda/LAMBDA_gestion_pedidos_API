@@ -122,3 +122,41 @@ class ResetPasswordSerializer(serializers.Serializer):
         if attrs['password_nuevo'] != attrs['password_nuevo2']:
             raise serializers.ValidationError({"password_nuevo": "Las contraseñas no coinciden."})
         return attrs
+
+class AsignarGrupoSerializer(serializers.Serializer):
+    grupo = serializers.CharField(required=True, max_length=100)
+    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+    def validate_grupo(self, value):
+        from django.contrib.auth.models import Group
+        from Usuarios.models import Grupos
+
+        GRUPOS_PERMITIDOS = [
+            Grupos.ADMIN_EMPRESA,
+            Grupos.VALIDADOR_FINANCIERO,
+            Grupos.VALIDADOR_ABASTECIMIENTO,
+            Grupos.SOLICITANTE
+        ]
+
+        if value not in GRUPOS_PERMITIDOS:
+            raise serializers.ValidationError(
+                f"Grupo '{value}' no permitido. Solo se pueden asignar: {', '.join(GRUPOS_PERMITIDOS)}"
+            )
+
+        if not Group.objects.filter(name=value).exists():
+            raise serializers.ValidationError(f"El grupo '{value}' no existe en el sistema.")
+
+        return value
+
+
+class RemoverGrupoSerializer(serializers.Serializer):
+    grupo = serializers.CharField(required=True, max_length=100)
+    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+    def validate_grupo(self, value):
+        from django.contrib.auth.models import Group
+
+        if not Group.objects.filter(name=value).exists():
+            raise serializers.ValidationError(f"El grupo '{value}' no existe en el sistema.")
+
+        return value

@@ -108,3 +108,157 @@ class RegenerarTokenUsuarioAPIView(ObjetoDetailMixin, APIView):
             'mensaje': 'Token regenerado exitosamente. Se ha enviado un nuevo correo de activación.',
             'token_expiracion': usuario.token_expiracion
         }, status=status.HTTP_200_OK)
+
+
+class AsignarGrupoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @manejar_errores_db
+    def post(self, request, pk):
+        from django.contrib.auth.models import Group
+        from Usuarios.serializers import AsignarGrupoSerializer
+        from Usuarios.models_auditoria import RegistroAuditoriaGrupo
+
+        usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
+        if error:
+            return error
+
+        serializer = AsignarGrupoSerializer(data=request.data)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        grupo_nombre = serializer.validated_data['grupo']
+        motivo = serializer.validated_data.get('motivo', '')
+
+        if usuario_target.empresa != request.user.empresa and not request.user.is_superuser and not request.user.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes asignar grupos a usuarios de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if usuario_target == request.user and grupo_nombre == Grupos.ADMIN_EMPRESA:
+            return Response(
+                {'error': 'No puedes asignarte el grupo Admin Empresa a ti mismo. Otro Admin debe hacerlo.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if usuario_target.groups.filter(name=grupo_nombre).exists():
+            return Response(
+                {'error': f'El usuario ya tiene el grupo {grupo_nombre}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        grupo = Group.objects.get(name=grupo_nombre)
+        usuario_target.groups.add(grupo)
+
+        RegistroAuditoriaGrupo.objects.create(
+            usuario_modificador=request.user,
+            usuario_afectado=usuario_target,
+            accion='ASIGNAR',
+            grupo_nombre=grupo_nombre,
+            empresa=usuario_target.empresa,
+            motivo=motivo
+        )
+
+        return Response({
+            'mensaje': f'Grupo {grupo_nombre} asignado exitosamente a {usuario_target.nombre}',
+            'usuario': UsuarioSerializer(usuario_target).data
+        }, status=status.HTTP_200_OK)
+
+
+class RemoverGrupoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @manejar_errores_db
+    def post(self, request, pk):
+        from django.contrib.auth.models import Group
+        from Usuarios.serializers import RemoverGrupoSerializer
+        from Usuarios.models_auditoria import RegistroAuditoriaGrupo
+
+        usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
+        if error:
+            return error
+
+        serializer = RemoverGrupoSerializer(data=request.data)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        grupo_nombre = serializer.validated_data['grupo']
+        motivo = serializer.validated_data.get('motivo', '')
+
+        if usuario_target.empresa != request.user.empresa and not request.user.is_superuser and not request.user.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes remover grupos de usuarios de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not usuario_target.groups.filter(name=grupo_nombre).exists():
+            return Response(
+                {'error': f'El usuario no tiene el grupo {grupo_nombre}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if grupo_nombre == Grupos.ADMIN_EMPRESA:
+            admins_count = Usuario.objects.filter(
+                empresa=usuario_target.empresa,
+                groups__name=Grupos.ADMIN_EMPRESA,
+                is_active=True,
+                estado=True
+            ).count()
+
+            if admins_count <= 1:
+                return Response(
+                    {'error': 'No puedes remover el último Admin Empresa. Debe haber al menos un administrador.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        grupo = Group.objects.get(name=grupo_nombre)
+        usuario_target.groups.remove(grupo)
+
+        RegistroAuditoriaGrupo.objects.create(
+            usuario_modificador=request.user,
+            usuario_afectado=usuario_target,
+            accion='REMOVER',
+            grupo_nombre=grupo_nombre,
+            empresa=usuario_target.empresa,
+            motivo=motivo
+        )
+
+        return Response({
+            'mensaje': f'Grupo {grupo_nombre} removido exitosamente de {usuario_target.nombre}',
+            'usuario': UsuarioSerializer(usuario_target).data
+        }, status=status.HTTP_200_OK)
+
+
+class ListarGruposDisponiblesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    def get(self, request):
+        grupos_disponibles = [
+            {
+                'nombre': Grupos.ADMIN_EMPRESA,
+                'descripcion': 'Administrador de la empresa con acceso completo a la gestión'
+            },
+            {
+                'nombre': Grupos.VALIDADOR_FINANCIERO,
+                'descripcion': 'Valida y aprueba solicitudes desde perspectiva financiera'
+            },
+            {
+                'nombre': Grupos.VALIDADOR_ABASTECIMIENTO,
+                'descripcion': 'Valida y aprueba solicitudes desde perspectiva de stock/logística'
+            },
+            {
+                'nombre': Grupos.SOLICITANTE,
+                'descripcion': 'Usuario base que puede crear solicitudes de productos'
+            }
+        ]
+
+        return Response({
+            'grupos': grupos_disponibles,
+            'nota': 'El grupo Admin Sistema solo puede ser asignado por LAMBDA'
+        }, status=status.HTTP_200_OK)

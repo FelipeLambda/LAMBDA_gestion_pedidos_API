@@ -5,8 +5,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError
 import logging
 
-from Usuarios.models import Grupos
-
 logger = logging.getLogger(__name__)
 
 

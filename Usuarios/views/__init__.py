@@ -5,7 +5,8 @@ from .autenticacion import (
 )
 from .usuarios import (
     UsuarioListCreateAPIView, UsuarioDetailAPIView,
-    RegenerarTokenUsuarioAPIView
+    RegenerarTokenUsuarioAPIView, AsignarGrupoAPIView,
+    RemoverGrupoAPIView, ListarGruposDisponiblesAPIView
 )
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     'PerfilUsuarioAPIView', 'CambioPasswordAPIView', 'RecuperarPasswordAPIView',
     'ResetPasswordAPIView', 'ActivarUsuarioAPIView',
     'UsuarioListCreateAPIView', 'UsuarioDetailAPIView',
-    'RegenerarTokenUsuarioAPIView'
+    'RegenerarTokenUsuarioAPIView', 'AsignarGrupoAPIView',
+    'RemoverGrupoAPIView', 'ListarGruposDisponiblesAPIView'
 ]

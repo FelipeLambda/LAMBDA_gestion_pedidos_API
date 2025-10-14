@@ -104,7 +104,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
         return True, None
 
     def activar_cuenta(self):
-        
+
         self.is_active = True
         self.token_activacion = None
         self.token_expiracion = None

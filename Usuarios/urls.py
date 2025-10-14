@@ -4,7 +4,8 @@ from .views import (
     LoginAPIView, LogoutAPIView,
     PerfilUsuarioAPIView, CambioPasswordAPIView, RecuperarPasswordAPIView,
     ResetPasswordAPIView, ActivarUsuarioAPIView,
-    UsuarioListCreateAPIView, UsuarioDetailAPIView, RegenerarTokenUsuarioAPIView
+    UsuarioListCreateAPIView, UsuarioDetailAPIView, RegenerarTokenUsuarioAPIView,
+    AsignarGrupoAPIView, RemoverGrupoAPIView, ListarGruposDisponiblesAPIView
 )
 
 urlpatterns = [
@@ -18,5 +19,8 @@ urlpatterns = [
     path('api/auth/activar_cuenta', ActivarUsuarioAPIView.as_view(), name='activarCuenta'),
     path('api/usuarios', UsuarioListCreateAPIView.as_view(), name='listarCrearUsuarios'),
     path('api/usuarios/<int:pk>', UsuarioDetailAPIView.as_view(), name='detalleUsuario'),
-    path('api/usuarios/<int:pk>/regenerar-token', RegenerarTokenUsuarioAPIView.as_view(), name='regenerarTokenUsuario'),
+    path('api/usuarios/<int:pk>/regenerar_token', RegenerarTokenUsuarioAPIView.as_view(), name='regenerarTokenUsuario'),
+    path('api/usuarios/<int:pk>/asignar_grupo', AsignarGrupoAPIView.as_view(), name='asignarGrupo'),
+    path('api/usuarios/<int:pk>/remover_grupo', RemoverGrupoAPIView.as_view(), name='removerGrupo'),
+    path('api/grupos/disponibles', ListarGruposDisponiblesAPIView.as_view(), name='gruposDisponibles'),
 ]

@@ -105,11 +105,11 @@ class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        area_admin = Area.objects.create(
-            nombre='Administración',
-            empresa=empresa,
-            descripcion='Área administrativa principal'
-        )
+        empresa.token_activacion = None
+        empresa.token_expiracion = None
+        empresa.save()
+
+        area_admin = Area.objects.get(empresa=empresa, nombre='Administración')
 
         admin_empresa = Usuario.objects.create_user(
             email=serializer.validated_data['email'],
@@ -122,10 +122,6 @@ class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
 
         grupo_admin_empresa = Group.objects.get(name=Grupos.ADMIN_EMPRESA)
         admin_empresa.groups.add(grupo_admin_empresa)
-
-        empresa.token_activacion = None
-        empresa.token_expiracion = None
-        empresa.save()
 
         return Response({
             'mensaje': 'Empresa activada exitosamente',
