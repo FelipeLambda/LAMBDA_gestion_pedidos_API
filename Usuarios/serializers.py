@@ -1,7 +1,16 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.models import Group
 from .models import Usuario
+from Usuarios.models import Grupos
+
+GRUPOS_PERMITIDOS = [
+    Grupos.ADMIN_EMPRESA,
+    Grupos.VALIDADOR_FINANCIERO,
+    Grupos.VALIDADOR_ABASTECIMIENTO,
+    Grupos.SOLICITANTE,
+]
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
@@ -51,7 +60,7 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password2')
+        validated_data.pop('password2', None)
         usuario = Usuario.objects.create_user(**validated_data)
         return usuario
 
@@ -107,7 +116,7 @@ class RecuperarPasswordSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         try:
-            usuario = Usuario.objects.get(email=value)
+            Usuario.objects.get(email=value)
         except Usuario.DoesNotExist:
             raise serializers.ValidationError("No existe un usuario con este correo.")
         return value
@@ -128,16 +137,6 @@ class AsignarGrupoSerializer(serializers.Serializer):
     motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
     def validate_grupo(self, value):
-        from django.contrib.auth.models import Group
-        from Usuarios.models import Grupos
-
-        GRUPOS_PERMITIDOS = [
-            Grupos.ADMIN_EMPRESA,
-            Grupos.VALIDADOR_FINANCIERO,
-            Grupos.VALIDADOR_ABASTECIMIENTO,
-            Grupos.SOLICITANTE
-        ]
-
         if value not in GRUPOS_PERMITIDOS:
             raise serializers.ValidationError(
                 f"Grupo '{value}' no permitido. Solo se pueden asignar: {', '.join(GRUPOS_PERMITIDOS)}"
@@ -154,8 +153,6 @@ class RemoverGrupoSerializer(serializers.Serializer):
     motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
     def validate_grupo(self, value):
-        from django.contrib.auth.models import Group
-
         if not Group.objects.filter(name=value).exists():
             raise serializers.ValidationError(f"El grupo '{value}' no existe en el sistema.")
 

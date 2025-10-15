@@ -79,7 +79,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
     objects = UsuarioManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['nombre', 'cargo']
+    REQUIRED_FIELDS = ['nombre', 'cargo', 'empresa_id', 'area_id']
 
     class Meta:
         db_table = 'usuarios'
