@@ -8,6 +8,7 @@ from Empresas.models import Empresa, Area
 class Grupos:
     ADMIN_SISTEMA = 'Admin Sistema'
     ADMIN_EMPRESA = 'Admin Empresa'
+    JEFE_AREA = 'Jefe de Área'
     VALIDADOR_FINANCIERO = 'Validador Financiero'
     VALIDADOR_ABASTECIMIENTO = 'Validador Abastecimiento'
     SOLICITANTE = 'Solicitante'
@@ -17,6 +18,7 @@ class Grupos:
         return [
             cls.ADMIN_SISTEMA,
             cls.ADMIN_EMPRESA,
+            cls.JEFE_AREA,
             cls.VALIDADOR_FINANCIERO,
             cls.VALIDADOR_ABASTECIMIENTO,
             cls.SOLICITANTE
@@ -109,3 +111,19 @@ class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
         self.token_activacion = None
         self.token_expiracion = None
         self.save(update_fields=['is_active', 'token_activacion', 'token_expiracion'])
+
+
+class Role(BaseModel):
+    nombre = models.CharField(max_length=100, verbose_name='Nombre del rol')
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='roles', verbose_name='Empresa')
+    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+
+    class Meta:
+        db_table = 'roles'
+        unique_together = [['nombre', 'empresa']]
+        ordering = ['nombre']
+
+    def __str__(self):
+        return f"{self.nombre} - {self.empresa.nombre}"
+
+Usuario.add_to_class('roles', models.ManyToManyField(Role, blank=True, related_name='usuarios'))

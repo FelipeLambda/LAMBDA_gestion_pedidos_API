@@ -1,12 +1,13 @@
-from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.models import Group
-from .models import Usuario
+from rest_framework import serializers
 from Usuarios.models import Grupos
+from .models import Usuario, Role
 
 GRUPOS_PERMITIDOS = [
     Grupos.ADMIN_EMPRESA,
+    Grupos.JEFE_AREA,
     Grupos.VALIDADOR_FINANCIERO,
     Grupos.VALIDADOR_ABASTECIMIENTO,
     Grupos.SOLICITANTE,
@@ -17,6 +18,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
     area_nombre = serializers.CharField(source='area.nombre', read_only=True)
     grupos = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
@@ -29,6 +31,18 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     def get_grupos(self, obj):
         return [grupo.name for grupo in obj.groups.all()]
+
+    def get_roles(self, obj):
+        return [{'id': r.id, 'nombre': r.nombre} for r in obj.roles.all()]
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
+
+    class Meta:
+        model = Role
+        fields = ['id', 'nombre', 'descripcion', 'empresa', 'empresa_nombre']
+        read_only_fields = ['id', 'empresa', 'empresa_nombre']
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])

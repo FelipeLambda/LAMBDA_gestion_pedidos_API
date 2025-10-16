@@ -12,6 +12,8 @@ class EmpresaSerializer(serializers.ModelSerializer):
 
 class AreaSerializer(serializers.ModelSerializer):
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
+    allowed_encargado_roles = serializers.PrimaryKeyRelatedField(many=True, required=False, queryset=None)
+    encargado = serializers.PrimaryKeyRelatedField(required=False, allow_null=True, queryset=None)
 
     class Meta:
         model = Area
@@ -24,6 +26,33 @@ class AreaSerializer(serializers.ModelSerializer):
                 "Un área no puede ser financiera y de abastecimiento al mismo tiempo"
             )
         return attrs
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from Usuarios.models import Role, Usuario
+        self.fields['allowed_encargado_roles'].queryset = Role.objects.all()
+        self.fields['encargado'].queryset = Usuario.objects.all()
+
+    def validate(self, attrs):
+        base = super().validate(attrs)
+
+        empresa = attrs.get('empresa') or getattr(self.instance, 'empresa', None)
+        encargado = attrs.get('encargado') if 'encargado' in attrs else getattr(self.instance, 'encargado', None)
+        allowed_roles = attrs.get('allowed_encargado_roles') if 'allowed_encargado_roles' in attrs else None
+
+        if encargado and empresa and encargado.empresa_id != empresa.id:
+            raise serializers.ValidationError({
+                'encargado': 'El encargado debe pertenecer a la misma empresa que el área.'
+            })
+
+        if encargado and allowed_roles:
+            encarg_role_ids = set(encargado.roles.filter(id__in=[r.id for r in allowed_roles]).values_list('id', flat=True))
+            if not encarg_role_ids:
+                raise serializers.ValidationError({
+                    'encargado': 'El encargado no tiene ninguno de los roles permitidos para esta área.'
+                })
+
+        return base
 
 
 class ActivarEmpresaSerializer(serializers.Serializer):

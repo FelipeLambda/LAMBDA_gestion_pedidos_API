@@ -50,6 +50,22 @@ class Area(BaseModel):
         help_text='Marca si esta área corresponde al departamento de abastecimiento'
     )
 
+    allowed_encargado_roles = models.ManyToManyField(
+        'Usuarios.Role',
+        blank=True,
+        related_name='areas_permitidas',
+        verbose_name='Roles permitidos como encargados'
+    )
+
+    encargado = models.ForeignKey(
+        'Usuarios.Usuario',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='areas_a_cargo',
+        verbose_name='Encargado del área'
+    )
+
     class Meta:
         db_table = 'areas'
         verbose_name = 'Área'

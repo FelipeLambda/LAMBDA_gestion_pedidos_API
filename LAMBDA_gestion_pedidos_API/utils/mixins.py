@@ -107,3 +107,47 @@ class SerializerValidationMixin:
                 status=status.HTTP_400_BAD_REQUEST
             )
         return True, None
+
+
+class PermisosPorAreaMixin:
+    """Mixin para validar permisos limitados por área"""
+
+    def puede_gestionar_en_area(self, usuario, recurso):
+        if self._es_admin_global(usuario):
+            return True, None
+
+        es_valido, mensaje = self._validar_empresa_usuario(usuario)
+        if not es_valido:
+            return False, mensaje
+
+        if usuario.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
+            return self._verificar_misma_empresa(usuario, recurso)
+
+        if usuario.groups.filter(name=Grupos.JEFE_AREA).exists():
+            if not usuario.area:
+                return False, 'Jefe de Área sin área asignada'
+
+            if hasattr(recurso, 'area') and recurso.area == usuario.area:
+                return True, None
+            elif hasattr(recurso, 'solicitante') and recurso.solicitante.area == usuario.area:
+                return True, None
+
+            return False, 'Solo puede gestionar recursos de su área'
+
+        return False, 'No tiene permisos para gestionar recursos'
+
+    @staticmethod
+    def _es_admin_global(usuario):
+        return usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists()
+
+    @staticmethod
+    def _validar_empresa_usuario(usuario):
+        if not usuario.empresa:
+            return False, 'Usuario sin empresa asignada. Contacte al administrador.'
+        return True, None
+
+    @staticmethod
+    def _verificar_misma_empresa(usuario, recurso, accion='gestionar'):
+        if recurso.empresa == usuario.empresa:
+            return True, None
+        return False, f'No tiene permisos para {accion} recursos de otras empresas'

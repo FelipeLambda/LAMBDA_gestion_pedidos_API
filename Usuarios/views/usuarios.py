@@ -1,12 +1,10 @@
 import secrets
 from datetime import timedelta
-
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-
 from Usuarios.models import Usuario
 from Usuarios.serializers import UsuarioSerializer, RegistroUsuarioSerializer
 from Usuarios.services import EmailService
@@ -15,6 +13,7 @@ from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PermisosPorAreaMixin,
     manejar_errores_db
 )
 from Usuarios.models import Grupos
@@ -23,9 +22,15 @@ from Usuarios.models import Grupos
 class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA, Grupos.JEFE_AREA)
     def get(self, request):
         usuarios = self.filtrar_por_empresa(request, Usuario.objects.all())
+
+        if request.user.groups.filter(name=Grupos.JEFE_AREA).exists() and \
+           not request.user.groups.filter(name=Grupos.ADMIN_EMPRESA).exists() and \
+           not request.user.is_superuser:
+            usuarios = usuarios.filter(area=request.user.area)
+
         serializer = UsuarioSerializer(usuarios, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -52,7 +57,7 @@ class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, 
         }, status=status.HTTP_201_CREATED)
 
 
-class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
+class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, PermisosPorAreaMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @manejar_errores_db
@@ -64,12 +69,16 @@ class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
         serializer = UsuarioSerializer(usuario)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA, Grupos.JEFE_AREA)
     @manejar_errores_db
     def put(self, request, pk):
         usuario, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
         if error:
             return error
+
+        puede, mensaje = self.puede_gestionar_en_area(request.user, usuario)
+        if not puede:
+            return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = UsuarioSerializer(usuario, data=request.data, partial=True)
         es_valido, error = self.validar_serializer(serializer)
@@ -243,6 +252,10 @@ class ListarGruposDisponiblesAPIView(APIView):
             {
                 'nombre': Grupos.ADMIN_EMPRESA,
                 'descripcion': 'Administrador de la empresa con acceso completo a la gestión'
+            },
+            {
+                'nombre': Grupos.JEFE_AREA,
+                'descripcion': 'Gestiona usuarios y solicitudes únicamente de su área'
             },
             {
                 'nombre': Grupos.VALIDADOR_FINANCIERO,

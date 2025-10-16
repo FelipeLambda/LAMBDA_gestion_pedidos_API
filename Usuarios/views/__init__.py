@@ -8,6 +8,9 @@ from .usuarios import (
     RegenerarTokenUsuarioAPIView, AsignarGrupoAPIView,
     RemoverGrupoAPIView, ListarGruposDisponiblesAPIView
 )
+from .roles import (
+    RoleListCreateAPIView, RoleDetailAPIView
+)
 
 __all__ = [
     'LoginAPIView', 'LogoutAPIView',
@@ -15,5 +18,6 @@ __all__ = [
     'ResetPasswordAPIView', 'ActivarUsuarioAPIView',
     'UsuarioListCreateAPIView', 'UsuarioDetailAPIView',
     'RegenerarTokenUsuarioAPIView', 'AsignarGrupoAPIView',
-    'RemoverGrupoAPIView', 'ListarGruposDisponiblesAPIView'
+    'RemoverGrupoAPIView', 'ListarGruposDisponiblesAPIView',
+    'RoleListCreateAPIView', 'RoleDetailAPIView'
 ]
