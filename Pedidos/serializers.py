@@ -143,3 +143,13 @@ class EditarPedidoSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+class AprobarPagoDiferidoSerializer(serializers.Serializer):
+    aprobado = serializers.BooleanField(required=True)
+    observaciones = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Observaciones sobre la decisión de aprobar o rechazar"
+    )

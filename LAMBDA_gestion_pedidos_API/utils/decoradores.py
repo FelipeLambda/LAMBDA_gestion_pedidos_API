@@ -1,9 +1,10 @@
+import logging
 from functools import wraps
 from rest_framework.response import Response
 from rest_framework import status
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError
-import logging
+from .mixins import verificar_alguno_de_permisos
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,26 @@ def requiere_grupos(*nombres_grupos):
                 )
 
             return vista_metodo(self, request, *args, **kwargs)
+        return wrapper
+    return decorador
+
+def requiere_permisos(*codigos_permisos):
+    """
+    Decorador para verificar permisos RBAC granulares.
+    Verifica que el usuario tenga AL MENOS UNO de los permisos especificados.
+    """
+    def decorador(vista_metodo):
+        @wraps(vista_metodo)
+        def wrapper(self, request, *args, **kwargs):
+            if verificar_alguno_de_permisos(request.user, codigos_permisos):
+                return vista_metodo(self, request, *args, **kwargs)
+
+            permisos_str = ' o '.join(codigos_permisos)
+            return Response(
+                {'error': f'No tienes los permisos necesarios. Se requiere: {permisos_str}'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         return wrapper
     return decorador
 

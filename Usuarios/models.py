@@ -106,24 +106,134 @@ class Usuario(AbstractBaseUser, PermissionsMixin, BaseModel):
         return True, None
 
     def activar_cuenta(self):
-
         self.is_active = True
         self.token_activacion = None
         self.token_expiracion = None
         self.save(update_fields=['is_active', 'token_activacion', 'token_expiracion'])
 
+    def tiene_permiso_rbac(self, codigo_permiso):
 
-class Role(BaseModel):
-    nombre = models.CharField(max_length=100, verbose_name='Nombre del rol')
-    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='roles', verbose_name='Empresa')
+        if self.is_superuser:
+            return True
+
+        return self.roles.filter(permisos__codigo=codigo_permiso).exists()
+
+
+class Permiso(models.Model):
+    """
+    Permisos granulares del sistema.
+    Estos son inmutables y definidos por LAMBDA.
+    """
+    MODULOS = [
+        ('pedidos', 'Pedidos'),
+        ('solicitudes', 'Solicitudes'),
+        ('usuarios', 'Usuarios'),
+        ('productos', 'Productos'),
+        ('inventario', 'Inventario'),
+        ('reportes', 'Reportes'),
+        ('pagos', 'Pagos'),
+        ('empresas', 'Empresas'),
+    ]
+
+    codigo = models.CharField(max_length=100, unique=True, verbose_name='Código del permiso')
+    nombre = models.CharField(max_length=200, verbose_name='Nombre descriptivo')
+    modulo = models.CharField(max_length=50, choices=MODULOS, verbose_name='Módulo')
     descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
 
     class Meta:
-        db_table = 'roles'
-        unique_together = [['nombre', 'empresa']]
-        ordering = ['nombre']
+        db_table = 'permisos'
+        ordering = ['modulo', 'codigo']
+        verbose_name = 'Permiso'
+        verbose_name_plural = 'Permisos'
 
     def __str__(self):
-        return f"{self.nombre} - {self.empresa.nombre}"
+        return f"{self.codigo} - {self.nombre}"
+
+
+class Role(BaseModel):
+    """
+    Roles del sistema (empresa=NULL) o personalizados (empresa!=NULL).
+    Los roles del sistema son templates base que todas las empresas pueden usar.
+    """
+    TIPO_CHOICES = [
+        ('SISTEMA', 'Rol del Sistema'),
+        ('PERSONALIZADO', 'Rol Personalizado'),
+    ]
+
+    nombre = models.CharField(max_length=100, verbose_name='Nombre del rol')
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='roles',
+        verbose_name='Empresa',
+        null=True,
+        blank=True,
+        help_text='NULL para roles del sistema, empresa específica para roles personalizados'
+    )
+    descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='PERSONALIZADO',
+        verbose_name='Tipo de rol'
+    )
+    es_modificable = models.BooleanField(
+        default=True,
+        verbose_name='¿Es modificable?',
+        help_text='Los roles del sistema base no son modificables (pero se pueden clonar)'
+    )
+    creado_por = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='roles_creados',
+        verbose_name='Creado por'
+    )
+    permisos = models.ManyToManyField(
+        Permiso,
+        blank=True,
+        related_name='roles',
+        verbose_name='Permisos'
+    )
+
+    class Meta:
+        db_table = 'roles'
+        ordering = ['tipo', 'nombre']
+        verbose_name = 'Rol'
+        verbose_name_plural = 'Roles'
+
+    def __str__(self):
+        if self.empresa:
+            return f"{self.nombre} - {self.empresa.nombre}"
+        return f"{self.nombre} (Sistema)"
+
+    def es_rol_sistema(self):
+        return self.tipo == 'SISTEMA' and self.empresa is None
+
+    def puede_ser_editado_por(self, usuario):
+        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            return True
+
+        if self.es_rol_sistema() and not self.es_modificable:
+            return False
+
+        if usuario.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
+            return self.empresa == usuario.empresa
+
+        return False
+
+    def clonar_para_empresa(self, empresa, usuario, nuevo_nombre=None):
+        rol_clonado = Role.objects.create(
+            nombre=nuevo_nombre or f"{self.nombre} (Copia)",
+            empresa=empresa,
+            descripcion=self.descripcion,
+            tipo='PERSONALIZADO',
+            es_modificable=True,
+            creado_por=usuario
+        )
+        rol_clonado.permisos.set(self.permisos.all())
+        return rol_clonado
+
 
 Usuario.add_to_class('roles', models.ManyToManyField(Role, blank=True, related_name='usuarios'))

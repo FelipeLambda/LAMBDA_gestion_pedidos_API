@@ -93,10 +93,13 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
         from Usuarios.models import Grupos
 
         grupo_financiero = Group.objects.get(name=Grupos.VALIDADOR_FINANCIERO)
-        tiene_validador_financiero = value.usuarios.filter(
-            groups=grupo_financiero,
-            is_active=True
-        ).exists()
+        tiene_validador_financiero = (
+            value.usuarios.filter(groups=grupo_financiero, is_active=True).exists() or
+            value.usuarios.filter(
+                roles__permisos__codigo='solicitudes.validar_financiero',
+                is_active=True
+            ).exists()
+        )
 
         if not tiene_validador_financiero:
             raise serializers.ValidationError(
@@ -104,10 +107,13 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
             )
 
         grupo_abastecimiento = Group.objects.get(name=Grupos.VALIDADOR_ABASTECIMIENTO)
-        tiene_validador_abastecimiento = value.usuarios.filter(
-            groups=grupo_abastecimiento,
-            is_active=True
-        ).exists()
+        tiene_validador_abastecimiento = (
+            value.usuarios.filter(groups=grupo_abastecimiento, is_active=True).exists() or
+            value.usuarios.filter(
+                roles__permisos__codigo='solicitudes.validar_abastecimiento',
+                is_active=True
+            ).exists()
+        )
 
         if not tiene_validador_abastecimiento:
             raise serializers.ValidationError(
@@ -161,3 +167,23 @@ class ValidarSolicitudSerializer(serializers.Serializer):
                 "observaciones": "Debe proporcionar observaciones al rechazar una solicitud."
             })
         return attrs
+
+
+class ModificarSolicitudAbastecimientoSerializer(serializers.Serializer):
+    """Serializer para modificar una solicitud por el validador de abastecimiento."""
+    detalles_modificados = DetalleSolicitudCreateSerializer(many=True, required=True)
+    observaciones = serializers.CharField(
+        required=True,
+        max_length=500,
+        help_text="Motivo de la modificación"
+    )
+
+    def validate_detalles_modificados(self, value):
+        if not value:
+            raise serializers.ValidationError("Debe incluir al menos un detalle modificado.")
+
+        productos_ids = [detalle['producto'].id for detalle in value]
+        if len(productos_ids) != len(set(productos_ids)):
+            raise serializers.ValidationError("No se pueden repetir productos en la solicitud.")
+
+        return value

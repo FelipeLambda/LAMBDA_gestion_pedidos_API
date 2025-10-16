@@ -7,16 +7,13 @@ from Usuarios.models import Usuario
 
 class MovimientoInventarioManager(models.Manager):
     def entradas(self):
-        from Inventario.models import MovimientoInventario
-        return self.filter(estado=True, tipo_movimiento=MovimientoInventario.TiposMovimiento.ENTRADA)
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.ENTRADA)
 
     def salidas(self):
-        from Inventario.models import MovimientoInventario
-        return self.filter(estado=True, tipo_movimiento=MovimientoInventario.TiposMovimiento.SALIDA)
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.SALIDA)
 
     def reservas_activas(self):
-        from Inventario.models import MovimientoInventario
-        return self.filter(estado=True, tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA)
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.RESERVA)
 
     def por_producto(self, producto):
         return self.filter(estado=True, producto=producto)

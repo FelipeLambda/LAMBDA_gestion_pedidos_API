@@ -11,24 +11,19 @@ from Solicitudes.models import Solicitud
 
 class PedidoManager(models.Manager):
     def pendientes_pago(self):
-        from Pedidos.models import Pedido
-        return self.filter(estado=True, estado_pedido=Pedido.Estados.PENDIENTE_PAGO)
+        return self.filter(estado=True, estado_pedido=self.model.Estados.PENDIENTE_PAGO)
 
     def pago_confirmado(self):
-        from Pedidos.models import Pedido
-        return self.filter(estado=True, estado_pedido=Pedido.Estados.PAGO_CONFIRMADO)
+        return self.filter(estado=True, estado_pedido=self.model.Estados.PAGO_CONFIRMADO)
 
     def en_despacho(self):
-        from Pedidos.models import Pedido
-        return self.filter(estado=True, estado_pedido=Pedido.Estados.EN_DESPACHO)
+        return self.filter(estado=True, estado_pedido=self.model.Estados.EN_DESPACHO)
 
     def completados(self):
-        from Pedidos.models import Pedido
-        return self.filter(estado=True, estado_pedido=Pedido.Estados.COMPLETADO)
+        return self.filter(estado=True, estado_pedido=self.model.Estados.COMPLETADO)
 
     def cancelados(self):
-        from Pedidos.models import Pedido
-        return self.filter(estado=True, estado_pedido=Pedido.Estados.CANCELADO)
+        return self.filter(estado=True, estado_pedido=self.model.Estados.CANCELADO)
 
 
 class Pedido(BaseModel):

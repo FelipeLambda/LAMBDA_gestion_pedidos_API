@@ -11,6 +11,7 @@ from Pedidos.serializers import (
     EditarPedidoSerializer
 )
 from Solicitudes.models import Solicitud
+from Inventario.models import MovimientoInventario
 from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
@@ -76,7 +77,6 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoD
 
         # Liberar reservas de stock antes de eliminar pedido
         if pedido.estado_pedido == Pedido.Estados.PENDIENTE_PAGO:
-            from Inventario.models import MovimientoInventario
             for detalle in pedido.detalles.filter(estado=True):
                 MovimientoInventario.objects.create(
                     tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
@@ -140,7 +140,6 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
             observaciones=observaciones
         )
 
-        from Inventario.models import MovimientoInventario
         for detalle_solicitud in detalles_solicitud:
             DetallePedido.objects.create(
                 pedido=pedido,
@@ -191,7 +190,6 @@ class ActualizarEstadoPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin
 
         # Al confirmar pago: liberar reserva y descontar stock disponible
         if nuevo_estado == Pedido.Estados.PAGO_CONFIRMADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
-            from Inventario.models import MovimientoInventario
             for detalle in pedido.detalles.filter(estado=True):
                 MovimientoInventario.objects.create(
                     tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
@@ -221,7 +219,6 @@ class ActualizarEstadoPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin
 
         # Al cancelar pedido pendiente de pago: liberar reservas de stock
         if nuevo_estado == Pedido.Estados.CANCELADO and estado_anterior == Pedido.Estados.PENDIENTE_PAGO:
-            from Inventario.models import MovimientoInventario
             for detalle in pedido.detalles.filter(estado=True):
                 MovimientoInventario.objects.create(
                     tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,

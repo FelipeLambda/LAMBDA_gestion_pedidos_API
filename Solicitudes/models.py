@@ -8,20 +8,16 @@ from Productos.models import Producto
 
 class SolicitudManager(models.Manager):
     def pendientes_abastecimiento(self):
-        from Solicitudes.models import Solicitud
-        return self.filter(estado=True, estado_solicitud=Solicitud.Estados.PENDIENTE_ABASTECIMIENTO)
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.PENDIENTE_ABASTECIMIENTO)
 
     def pendientes_finanzas(self):
-        from Solicitudes.models import Solicitud
-        return self.filter(estado=True, estado_solicitud=Solicitud.Estados.PENDIENTE_FINANZAS)
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.PENDIENTE_FINANZAS)
 
     def aprobadas(self):
-        from Solicitudes.models import Solicitud
-        return self.filter(estado=True, estado_solicitud=Solicitud.Estados.LISTO_PARA_COMPRA)
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.LISTO_PARA_COMPRA)
 
     def rechazadas(self):
-        from Solicitudes.models import Solicitud
-        return self.filter(estado=True, estado_solicitud=Solicitud.Estados.RECHAZADA)
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.RECHAZADA)
 
 
 class Solicitud(BaseModel):

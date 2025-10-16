@@ -5,8 +5,10 @@ from .views import (
     PerfilUsuarioAPIView, CambioPasswordAPIView, RecuperarPasswordAPIView,
     ResetPasswordAPIView, ActivarUsuarioAPIView,
     UsuarioListCreateAPIView, UsuarioDetailAPIView, RegenerarTokenUsuarioAPIView,
-    AsignarGrupoAPIView, RemoverGrupoAPIView, ListarGruposDisponiblesAPIView
-    , RoleListCreateAPIView, RoleDetailAPIView
+    ActivarDesactivarUsuarioAPIView, AsignarGrupoAPIView, RemoverGrupoAPIView,
+    ListarGruposDisponiblesAPIView,
+    ListarPermisosAPIView, RolesRBACListCreateAPIView, RolesRBACDetailAPIView,
+    ClonarRolAPIView, AsignarRolUsuarioAPIView, RemoverRolUsuarioAPIView
 )
 
 urlpatterns = [
@@ -21,9 +23,14 @@ urlpatterns = [
     path('api/usuarios', UsuarioListCreateAPIView.as_view(), name='listarCrearUsuarios'),
     path('api/usuarios/<int:pk>', UsuarioDetailAPIView.as_view(), name='detalleUsuario'),
     path('api/usuarios/<int:pk>/regenerar_token', RegenerarTokenUsuarioAPIView.as_view(), name='regenerarTokenUsuario'),
+    path('api/usuarios/<int:pk>/activar_desactivar', ActivarDesactivarUsuarioAPIView.as_view(), name='activarDesactivarUsuario'),
     path('api/usuarios/<int:pk>/asignar_grupo', AsignarGrupoAPIView.as_view(), name='asignarGrupo'),
     path('api/usuarios/<int:pk>/remover_grupo', RemoverGrupoAPIView.as_view(), name='removerGrupo'),
     path('api/grupos/disponibles', ListarGruposDisponiblesAPIView.as_view(), name='gruposDisponibles'),
-    path('api/roles', RoleListCreateAPIView.as_view(), name='listarCrearRoles'),
-    path('api/roles/<int:pk>', RoleDetailAPIView.as_view(), name='detalleRole'),
+    path('api/rbac/permisos', ListarPermisosAPIView.as_view(), name='listarPermisos'),
+    path('api/rbac/roles', RolesRBACListCreateAPIView.as_view(), name='rolesRBAC'),
+    path('api/rbac/roles/<int:pk>', RolesRBACDetailAPIView.as_view(), name='detalleRolRBAC'),
+    path('api/rbac/roles/clonar', ClonarRolAPIView.as_view(), name='clonarRol'),
+    path('api/rbac/usuarios/<int:pk>/asignar_rol', AsignarRolUsuarioAPIView.as_view(), name='asignarRol'),
+    path('api/rbac/usuarios/<int:pk>/remover_rol', RemoverRolUsuarioAPIView.as_view(), name='removerRol'),
 ]

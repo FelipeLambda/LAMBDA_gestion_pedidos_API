@@ -8,12 +8,10 @@ from .models_notificaciones import NotificacionPago
 
 class PagoManager(models.Manager):
     def pendientes(self):
-        from Pagos.models import Pago
-        return self.filter(estado=True, estado_pago=Pago.Estados.PENDIENTE)
+        return self.filter(estado=True, estado_pago=self.model.Estados.PENDIENTE)
 
     def completados(self):
-        from Pagos.models import Pago
-        return self.filter(estado=True, estado_pago=Pago.Estados.COMPLETADO)
+        return self.filter(estado=True, estado_pago=self.model.Estados.COMPLETADO)
 
     def por_pedido(self, pedido):
         return self.filter(estado=True, pedido=pedido)

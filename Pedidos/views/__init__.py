@@ -7,6 +7,10 @@ from .pedidos import (
     DescargarFacturaPDFAPIView,
     ReenviarFacturaAPIView
 )
+from .pagos import (
+    AprobarPagoDiferidoAPIView,
+    ListarPedidosPagoDiferidoAPIView
+)
 
 __all__ = [
     'PedidoListAPIView',
@@ -16,4 +20,6 @@ __all__ = [
     'EditarPedidoAPIView',
     'DescargarFacturaPDFAPIView',
     'ReenviarFacturaAPIView',
+    'AprobarPagoDiferidoAPIView',
+    'ListarPedidosPagoDiferidoAPIView',
 ]

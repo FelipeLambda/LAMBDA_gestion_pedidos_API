@@ -1,12 +1,21 @@
 import secrets
 from datetime import timedelta
+
+from django.contrib.auth.models import Group
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from Usuarios.models import Usuario
-from Usuarios.serializers import UsuarioSerializer, RegistroUsuarioSerializer
+
+from Usuarios.models import Usuario, Grupos
+from Usuarios.models_auditoria import RegistroAuditoriaGrupo
+from Usuarios.serializers import (
+    UsuarioSerializer,
+    RegistroUsuarioSerializer,
+    AsignarGrupoSerializer,
+    RemoverGrupoSerializer
+)
 from Usuarios.services import EmailService
 from LAMBDA_gestion_pedidos_API.utils import (
     requiere_grupos,
@@ -16,7 +25,6 @@ from LAMBDA_gestion_pedidos_API.utils import (
     PermisosPorAreaMixin,
     manejar_errores_db
 )
-from Usuarios.models import Grupos
 
 
 class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
@@ -119,16 +127,82 @@ class RegenerarTokenUsuarioAPIView(ObjetoDetailMixin, APIView):
         }, status=status.HTTP_200_OK)
 
 
+class ActivarDesactivarUsuarioAPIView(ObjetoDetailMixin, APIView):
+    permission_classes = [IsAuthenticated]
+
+    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @manejar_errores_db
+    def post(self, request, pk):
+        usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
+        if error:
+            return error
+
+        accion = request.data.get('accion')
+
+        if not accion or accion not in ['activar', 'inactivar']:
+            return Response(
+                {'error': 'Debe especificar una acción válida: "activar" o "inactivar"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if usuario_target.empresa != request.user.empresa and not request.user.is_superuser and not request.user.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes gestionar usuarios de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if usuario_target == request.user:
+            return Response(
+                {'error': 'No puedes cambiar tu propio estado de activación'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if accion == 'activar':
+            if usuario_target.is_active:
+                return Response(
+                    {'error': 'El usuario ya está activo'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            usuario_target.is_active = True
+            mensaje = f'Usuario {usuario_target.nombre} activado exitosamente'
+        else:
+            if not usuario_target.is_active:
+                return Response(
+                    {'error': 'El usuario ya está inactivo'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if usuario_target.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
+                admins_count = Usuario.objects.filter(
+                    empresa=usuario_target.empresa,
+                    groups__name=Grupos.ADMIN_EMPRESA,
+                    is_active=True,
+                    estado=True
+                ).count()
+
+                if admins_count <= 1:
+                    return Response(
+                        {'error': 'No puedes desactivar el último Admin Empresa activo. Debe haber al menos un administrador.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            usuario_target.is_active = False
+            mensaje = f'Usuario {usuario_target.nombre} desactivado exitosamente'
+
+        usuario_target.save()
+
+        return Response({
+            'mensaje': mensaje,
+            'usuario': UsuarioSerializer(usuario_target).data
+        }, status=status.HTTP_200_OK)
+
+
 class AsignarGrupoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def post(self, request, pk):
-        from django.contrib.auth.models import Group
-        from Usuarios.serializers import AsignarGrupoSerializer
-        from Usuarios.models_auditoria import RegistroAuditoriaGrupo
-
         usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
         if error:
             return error
@@ -183,10 +257,6 @@ class RemoverGrupoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView)
     @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
     @manejar_errores_db
     def post(self, request, pk):
-        from django.contrib.auth.models import Group
-        from Usuarios.serializers import RemoverGrupoSerializer
-        from Usuarios.models_auditoria import RegistroAuditoriaGrupo
-
         usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
         if error:
             return error

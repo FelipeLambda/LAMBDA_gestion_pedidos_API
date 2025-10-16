@@ -1,7 +1,37 @@
 from rest_framework import status
 from rest_framework.response import Response
-from Usuarios.models import Grupos
+from Usuarios.models import Grupos, Permiso
 
+def obtener_permisos_de_usuario(usuario):
+    if usuario.is_superuser:
+        return set(Permiso.objects.values_list('codigo', flat=True))
+
+    permisos = set()
+    for rol in usuario.roles.all():
+        permisos.update(rol.permisos.values_list('codigo', flat=True))
+
+    return permisos
+
+def verificar_permiso_usuario(usuario, codigo_permiso):
+    if usuario.is_superuser:
+        return True
+
+    permisos_usuario = obtener_permisos_de_usuario(usuario)
+    return codigo_permiso in permisos_usuario
+
+def verificar_alguno_de_permisos(usuario, codigos_permisos):
+    if usuario.is_superuser:
+        return True
+
+    permisos_usuario = obtener_permisos_de_usuario(usuario)
+    return any(codigo in permisos_usuario for codigo in codigos_permisos)
+
+def verificar_todos_permisos(usuario, codigos_permisos):
+    if usuario.is_superuser:
+        return True
+
+    permisos_usuario = obtener_permisos_de_usuario(usuario)
+    return all(codigo in permisos_usuario for codigo in codigos_permisos)
 
 class FiltradoEmpresaMixin:
     """Mixin para filtrar recursos por empresa del usuario"""
@@ -21,7 +51,6 @@ class FiltradoEmpresaMixin:
     @staticmethod
     def _es_admin_global(usuario):
         return usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists()
-
 
 class PermisosPorEmpresaMixin:
     """Mixin para validar permisos de acceso a recursos por empresa"""
@@ -151,3 +180,30 @@ class PermisosPorAreaMixin:
         if recurso.empresa == usuario.empresa:
             return True, None
         return False, f'No tiene permisos para {accion} recursos de otras empresas'
+
+class PermisosRBACMixin:
+    """Mixin para verificar permisos RBAC granulares en vistas."""
+
+    def usuario_tiene_permiso(self, usuario, codigo_permiso):
+        return verificar_permiso_usuario(usuario, codigo_permiso)
+
+    def usuario_tiene_alguno_de(self, usuario, codigos_permisos):
+        return verificar_alguno_de_permisos(usuario, codigos_permisos)
+
+    def usuario_tiene_todos(self, usuario, codigos_permisos):
+        return verificar_todos_permisos(usuario, codigos_permisos)
+
+    def obtener_permisos_usuario(self, usuario):
+        return obtener_permisos_de_usuario(usuario)
+
+    def validar_permiso_o_403(self, usuario, codigo_permiso, mensaje_error=None):
+        if self.usuario_tiene_permiso(usuario, codigo_permiso):
+            return True, None
+
+        if not mensaje_error:
+            mensaje_error = f'No tienes el permiso necesario: {codigo_permiso}'
+
+        return False, Response(
+            {'error': mensaje_error},
+            status=status.HTTP_403_FORBIDDEN
+        )

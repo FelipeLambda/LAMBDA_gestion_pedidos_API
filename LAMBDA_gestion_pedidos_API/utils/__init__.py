@@ -1,5 +1,6 @@
 from .decoradores import (
     requiere_grupos,
+    requiere_permisos,
     requiere_permiso,
     manejar_errores_db
 )
@@ -8,12 +9,14 @@ from .mixins import (
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
-    PermisosPorAreaMixin
+    PermisosPorAreaMixin,
+    PermisosRBACMixin
 )
 from .pagination import PaginacionEstandar, PaginacionGrande, PaginacionPequena
 
 __all__ = [
     'requiere_grupos',
+    'requiere_permisos',
     'requiere_permiso',
     'manejar_errores_db',
     'FiltradoEmpresaMixin',
@@ -21,6 +24,7 @@ __all__ = [
     'ObjetoDetailMixin',
     'SerializerValidationMixin',
     'PermisosPorAreaMixin',
+    'PermisosRBACMixin',
     'PaginacionEstandar',
     'PaginacionGrande',
     'PaginacionPequena'
