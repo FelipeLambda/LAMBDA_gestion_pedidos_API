@@ -1,37 +1,22 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.auth.models import Group
 from rest_framework import serializers
-
-from Usuarios.models import Grupos
 from .models import Usuario, Role, Permiso
-
-GRUPOS_PERMITIDOS = [
-    Grupos.ADMIN_EMPRESA,
-    Grupos.JEFE_AREA,
-    Grupos.VALIDADOR_FINANCIERO,
-    Grupos.VALIDADOR_ABASTECIMIENTO,
-    Grupos.SOLICITANTE,
-]
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
     area_nombre = serializers.CharField(source='area.nombre', read_only=True)
-    grupos = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
         fields = [
             'id', 'email', 'nombre', 'cargo', 'empresa', 'empresa_nombre',
-            'area', 'area_nombre', 'grupos', 'roles',
+            'area', 'area_nombre', 'roles',
             'is_active', 'date_joined', 'fecha_creacion', 'fecha_actualizacion'
         ]
         read_only_fields = ['id', 'date_joined', 'fecha_creacion', 'fecha_actualizacion']
-
-    def get_grupos(self, obj):
-        return [grupo.name for grupo in obj.groups.all()]
 
     def get_roles(self, obj):
         return [{'id': r.id, 'nombre': r.nombre, 'tipo': r.tipo} for r in obj.roles.all()]
@@ -311,29 +296,3 @@ class ResetPasswordSerializer(serializers.Serializer):
         if attrs['password_nuevo'] != attrs['password_nuevo2']:
             raise serializers.ValidationError({"password_nuevo": "Las contraseñas no coinciden."})
         return attrs
-
-class AsignarGrupoSerializer(serializers.Serializer):
-    grupo = serializers.CharField(required=True, max_length=100)
-    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
-
-    def validate_grupo(self, value):
-        if value not in GRUPOS_PERMITIDOS:
-            raise serializers.ValidationError(
-                f"Grupo '{value}' no permitido. Solo se pueden asignar: {', '.join(GRUPOS_PERMITIDOS)}"
-            )
-
-        if not Group.objects.filter(name=value).exists():
-            raise serializers.ValidationError(f"El grupo '{value}' no existe en el sistema.")
-
-        return value
-
-
-class RemoverGrupoSerializer(serializers.Serializer):
-    grupo = serializers.CharField(required=True, max_length=100)
-    motivo = serializers.CharField(required=False, allow_blank=True, max_length=500)
-
-    def validate_grupo(self, value):
-        if not Group.objects.filter(name=value).exists():
-            raise serializers.ValidationError(f"El grupo '{value}' no existe en el sistema.")
-
-        return value

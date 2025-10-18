@@ -4,20 +4,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from Solicitudes.models import Solicitud, DetalleSolicitud
-from Solicitudes.serializers import SolicitudSerializer
-from Solicitudes.serializers import ModificarSolicitudAbastecimientoSerializer
+from Solicitudes.serializers import SolicitudSerializer, ModificarSolicitudAbastecimientoSerializer
 from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
     ObjetoDetailMixin,
-    SerializerValidationMixin
+    SerializerValidationMixin,
+    requiere_permisos
 )
-from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_permiso
 
 
 class ModificarSolicitudAbastecimientoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permiso('Solicitudes.validar_abastecimiento')
+    @requiere_permisos('solicitudes.validar_abastecimiento')
     @manejar_errores_db
     def patch(self, request, pk):
         solicitud, error = self.obtener_objeto_o_404(Solicitud, pk)

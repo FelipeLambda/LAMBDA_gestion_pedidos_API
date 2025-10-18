@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Group
 from Empresas.models import Empresa, Area
-from Usuarios.models import Usuario, Grupos
+from Usuarios.models import Usuario, Grupos, Role
 
 
 class Command(BaseCommand):
@@ -50,8 +49,8 @@ class Command(BaseCommand):
                 area=area_admin
             )
 
-            grupo_admin_sistema = Group.objects.get(name=Grupos.ADMIN_SISTEMA)
-            admin.groups.add(grupo_admin_sistema)
+            rol_admin_sistema = Role.objects.get(nombre=Grupos.ADMIN_SISTEMA, empresa=None)
+            admin.roles.add(rol_admin_sistema)
 
             self.stdout.write(self.style.SUCCESS('[OK] Usuario admin@lambda.com creado'))
             self.stdout.write(self.style.WARNING('[IMPORTANTE] Contraseña temporal: lambda123'))

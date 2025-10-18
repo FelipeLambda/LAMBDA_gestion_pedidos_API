@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from Productos.models import Categoria
 from Productos.serializers import CategoriaSerializer
 from LAMBDA_gestion_pedidos_API.utils import (
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin,
     manejar_errores_db
@@ -23,7 +23,7 @@ class CategoriaListCreateAPIView(SerializerValidationMixin, APIView):
         serializer = CategoriaSerializer(categorias, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     def post(self, request):
         """
         Crea una nueva categoría.
@@ -55,7 +55,7 @@ class CategoriaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
         serializer = CategoriaSerializer(categoria)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -76,7 +76,7 @@ class CategoriaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
             'categoria': serializer.data
         }, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     @manejar_errores_db
     def delete(self, request, pk):
         """

@@ -212,13 +212,13 @@ class Role(BaseModel):
         return self.tipo == 'SISTEMA' and self.empresa is None
 
     def puede_ser_editado_por(self, usuario):
-        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             return True
 
         if self.es_rol_sistema() and not self.es_modificable:
             return False
 
-        if usuario.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
+        if usuario.roles.filter(nombre=Grupos.ADMIN_EMPRESA).exists():
             return self.empresa == usuario.empresa
 
         return False

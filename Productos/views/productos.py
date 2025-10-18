@@ -9,7 +9,7 @@ from Productos.serializers import (
     ProductoCreateUpdateSerializer
 )
 from LAMBDA_gestion_pedidos_API.utils import (
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin,
     manejar_errores_db
@@ -44,7 +44,7 @@ class ProductoListCreateAPIView(SerializerValidationMixin, APIView):
         serializer = ProductoListSerializer(productos, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     def post(self, request):
         """
         Crea un nuevo producto.
@@ -76,7 +76,7 @@ class ProductoDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVie
         serializer = ProductoSerializer(producto)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -102,7 +102,7 @@ class ProductoDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVie
             'producto': ProductoSerializer(producto).data
         }, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     @manejar_errores_db
     def delete(self, request, pk):
         """
@@ -124,7 +124,7 @@ class ProductoAlertasStockAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     def get(self, request):
         """
         Lista productos con stock bajo.

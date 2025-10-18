@@ -7,15 +7,15 @@ from Solicitudes.serializers import (
     SolicitudSerializer,
     CrearSolicitudSerializer
 )
+from Usuarios.models import Grupos
 from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
-    manejar_errores_db
+    manejar_errores_db,
+    requiere_permisos
 )
-from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
-from Usuarios.models import Grupos
 
 
 class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
@@ -24,9 +24,9 @@ class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin
     def get(self, request):
         usuario = request.user
 
-        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             solicitudes = Solicitud.objects.all()
-        elif usuario.groups.filter(name__in=[Grupos.ADMIN_EMPRESA, Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]).exists():
+        elif usuario.roles.filter(nombre__in=[Grupos.ADMIN_EMPRESA, Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]).exists():
             solicitudes = self.filtrar_por_empresa(request, Solicitud.objects.all())
         else:
             solicitudes = Solicitud.objects.filter(solicitante=usuario)
@@ -34,7 +34,7 @@ class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin
         serializer = SolicitudSerializer(solicitudes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.SOLICITANTE, Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('solicitudes.crear')
     @manejar_errores_db
     def post(self, request):
         serializer = CrearSolicitudSerializer(data=request.data, context={'request': request})
@@ -61,7 +61,7 @@ class SolicitudDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, Obje
         puede_ver, mensaje_error = self.puede_ver_recurso(
             request.user,
             solicitud,
-            grupos_adicionales=[Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]
+            roles_adicionales=[Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]
         )
         if not puede_ver:
             return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
@@ -69,7 +69,7 @@ class SolicitudDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, Obje
         serializer = SolicitudSerializer(solicitud)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('solicitudes.eliminar')
     @manejar_errores_db
     def delete(self, request, pk):
         solicitud, error = self.obtener_objeto_o_404(Solicitud, pk)

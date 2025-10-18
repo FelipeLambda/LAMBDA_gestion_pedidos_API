@@ -2,7 +2,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-
 from Usuarios.models import Usuario, Role, Permiso, Grupos
 from Usuarios.serializers import (
     PermisoSerializer,
@@ -15,7 +14,7 @@ from Usuarios.serializers import (
     UsuarioSerializer
 )
 from LAMBDA_gestion_pedidos_API.utils import (
-    requiere_grupos,
+    requiere_permisos,
     FiltradoEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
@@ -27,7 +26,7 @@ class ListarPermisosAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.listar_permisos')
     def get(self, request):
         permisos = Permiso.objects.all()
 
@@ -52,7 +51,7 @@ class RolesRBACListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.listar')
     def get(self, request):
         roles_sistema = Role.objects.filter(tipo='SISTEMA', empresa=None)
 
@@ -68,7 +67,7 @@ class RolesRBACListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin
             'total_personalizados': roles_personalizados.count()
         }, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.crear')
     @manejar_errores_db
     def post(self, request):
         serializer = RoleCreateUpdateSerializer(data=request.data, context={'request': request})
@@ -88,7 +87,7 @@ class RolesRBACDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.ver')
     @manejar_errores_db
     def get(self, request, pk):
         rol, error = self.obtener_objeto_o_404(Role, pk, usar_soft_delete=False)
@@ -103,7 +102,7 @@ class RolesRBACDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
 
         return Response(RoleSerializer(rol).data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.editar')
     @manejar_errores_db
     def put(self, request, pk):
         rol, error = self.obtener_objeto_o_404(Role, pk, usar_soft_delete=False)
@@ -128,7 +127,7 @@ class RolesRBACDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
             'rol': RoleSerializer(rol).data
         }, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.eliminar')
     @manejar_errores_db
     def delete(self, request, pk):
         rol, error = self.obtener_objeto_o_404(Role, pk, usar_soft_delete=False)
@@ -166,7 +165,7 @@ class ClonarRolAPIView(SerializerValidationMixin, APIView):
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.clonar')
     @manejar_errores_db
     def post(self, request):
         serializer = ClonarRolSerializer(data=request.data, context={'request': request})
@@ -194,7 +193,7 @@ class AsignarRolUsuarioAPIView(ObjetoDetailMixin, SerializerValidationMixin, API
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.asignar_rol_usuario')
     @manejar_errores_db
     def post(self, request, pk):
         usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
@@ -232,7 +231,7 @@ class RemoverRolUsuarioAPIView(ObjetoDetailMixin, SerializerValidationMixin, API
 
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('roles.remover_rol_usuario')
     @manejar_errores_db
     def post(self, request, pk):
         usuario_target, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)

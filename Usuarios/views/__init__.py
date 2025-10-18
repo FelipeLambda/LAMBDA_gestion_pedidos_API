@@ -5,8 +5,7 @@ from .autenticacion import (
 )
 from .usuarios import (
     UsuarioListCreateAPIView, UsuarioDetailAPIView,
-    RegenerarTokenUsuarioAPIView, ActivarDesactivarUsuarioAPIView,
-    AsignarGrupoAPIView, RemoverGrupoAPIView, ListarGruposDisponiblesAPIView
+    RegenerarTokenUsuarioAPIView, ActivarDesactivarUsuarioAPIView
 )
 from .roles_rbac import (
     ListarPermisosAPIView, RolesRBACListCreateAPIView, RolesRBACDetailAPIView,
@@ -19,7 +18,6 @@ __all__ = [
     'ResetPasswordAPIView', 'ActivarUsuarioAPIView',
     'UsuarioListCreateAPIView', 'UsuarioDetailAPIView',
     'RegenerarTokenUsuarioAPIView', 'ActivarDesactivarUsuarioAPIView',
-    'AsignarGrupoAPIView', 'RemoverGrupoAPIView', 'ListarGruposDisponiblesAPIView',
     'ListarPermisosAPIView', 'RolesRBACListCreateAPIView', 'RolesRBACDetailAPIView',
-    'ClonarRolAPIView', 'AsignarRolUsuarioAPIView', 'RemoverRolUsuarioAPIView'
+    'ClonarRolUsuarioAPIView', 'AsignarRolUsuarioAPIView', 'RemoverRolUsuarioAPIView'
 ]

@@ -12,17 +12,17 @@ from Pedidos.serializers import (
 )
 from Solicitudes.models import Solicitud
 from Inventario.models import MovimientoInventario
+from Usuarios.models import Grupos
+from Usuarios.services.email_service import EmailService
+from Reportes.utils_pdf import FacturaPDFGenerator
 from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
-    manejar_errores_db
+    manejar_errores_db,
+    requiere_permisos
 )
-from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
-from Usuarios.models import Grupos
-from Usuarios.services.email_service import EmailService
-from Reportes.utils_pdf import FacturaPDFGenerator
 
 
 class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
@@ -31,9 +31,9 @@ class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
     def get(self, request):
         usuario = request.user
 
-        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pedidos = Pedido.objects.all()
-        elif usuario.groups.filter(name=Grupos.ADMIN_EMPRESA).exists():
+        elif usuario.roles.filter(nombre=Grupos.ADMIN_EMPRESA).exists():
             pedidos = self.filtrar_por_empresa(request, Pedido.objects.all())
         else:
             pedidos = Pedido.objects.filter(solicitante=usuario)
@@ -58,7 +58,7 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoD
         serializer = PedidoSerializer(pedido)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.eliminar')
     @manejar_errores_db
     def delete(self, request, pk):
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
@@ -98,7 +98,7 @@ class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoD
 class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.crear')
     @manejar_errores_db
     def post(self, request):
         serializer = CrearPedidoSerializer(data=request.data)
@@ -166,7 +166,7 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
 class ActualizarEstadoPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.actualizar_estado')
     @manejar_errores_db
     def patch(self, request, pk):
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
@@ -240,7 +240,7 @@ class ActualizarEstadoPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin
 class EditarPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.editar')
     @manejar_errores_db
     def patch(self, request, pk):
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
@@ -290,7 +290,7 @@ class DescargarFacturaPDFAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, 
 class ReenviarFacturaAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.reenviar_factura')
     @manejar_errores_db
     def post(self, request, pk):
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)

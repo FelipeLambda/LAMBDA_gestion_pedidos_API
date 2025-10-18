@@ -7,7 +7,7 @@ from Pedidos.models import Pedido
 from Pedidos.serializers import PedidoSerializer, AprobarPagoDiferidoSerializer
 from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin
 )
@@ -17,7 +17,7 @@ from Usuarios.models import Grupos
 class AprobarPagoDiferidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.aprobar_pago_diferido')
     @manejar_errores_db
     def post(self, request, pk):
         """Aprueba o rechaza el pago diferido de un pedido (solo Admin Sistema)"""
@@ -67,7 +67,7 @@ class AprobarPagoDiferidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, A
 class ListarPedidosPagoDiferidoAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pedidos.listar_pagos_diferidos')
     def get(self, request):
         pedidos = Pedido.objects.filter(
             estado=True,

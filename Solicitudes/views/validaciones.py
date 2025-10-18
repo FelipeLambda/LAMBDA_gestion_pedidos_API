@@ -8,9 +8,9 @@ from Solicitudes.serializers import SolicitudSerializer, ValidarSolicitudSeriali
 from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
     ObjetoDetailMixin,
-    SerializerValidationMixin
+    SerializerValidationMixin,
+    requiere_permisos
 )
-from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_permiso
 
 
 class ValidarSolicitudBaseAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
@@ -78,7 +78,7 @@ class ValidarSolicitudAbastecimientoAPIView(ValidarSolicitudBaseAPIView):
     mensaje_aprobado = 'Solicitud validada exitosamente por Abastecimiento. Pasa a validación financiera.'
     mensaje_rechazado = 'Solicitud rechazada por Abastecimiento'
 
-    @requiere_permiso('Solicitudes.validar_abastecimiento')
+    @requiere_permisos('solicitudes.validar_abastecimiento')
     @manejar_errores_db
     def post(self, request, pk):
         return self.validar_solicitud(request, pk)
@@ -94,7 +94,7 @@ class ValidarSolicitudFinancieroAPIView(ValidarSolicitudBaseAPIView):
     mensaje_aprobado = 'Solicitud lista para compra. Puede convertirse en pedido.'
     mensaje_rechazado = 'Solicitud rechazada por Financiero'
 
-    @requiere_permiso('Solicitudes.validar_financiero')
+    @requiere_permisos('solicitudes.validar_financiero')
     @manejar_errores_db
     def post(self, request, pk):
         return self.validar_solicitud(request, pk)

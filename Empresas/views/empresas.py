@@ -1,18 +1,17 @@
 import secrets
 from datetime import timedelta
 from django.utils import timezone
-from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from Empresas.models import Empresa, Area
 from Empresas.serializers import EmpresaSerializer, ActivarEmpresaSerializer
-from Usuarios.models import Usuario, Grupos
+from Usuarios.models import Usuario, Grupos, Role
 from Usuarios.serializers import UsuarioSerializer
 from Usuarios.services import EmailService
 from LAMBDA_gestion_pedidos_API.utils import (
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin,
     manejar_errores_db
@@ -22,13 +21,13 @@ from LAMBDA_gestion_pedidos_API.utils import (
 class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('empresas.listar')
     def get(self, request):
         empresas = Empresa.activos.all()
         serializer = EmpresaSerializer(empresas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('empresas.crear')
     def post(self, request):
         serializer = EmpresaSerializer(data=request.data)
         es_valido, error = self.validar_serializer(serializer)
@@ -51,7 +50,7 @@ class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
 class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('empresas.ver')
     @manejar_errores_db
     def get(self, request, pk):
         empresa, error = self.obtener_objeto_o_404(Empresa, pk)
@@ -61,7 +60,7 @@ class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
         serializer = EmpresaSerializer(empresa)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('empresas.editar')
     @manejar_errores_db
     def put(self, request, pk):
         empresa, error = self.obtener_objeto_o_404(Empresa, pk)
@@ -99,7 +98,7 @@ class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
         if empresa.token_expiracion < timezone.now():
             return Response({'error': 'El token ha expirado'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if Usuario.objects.filter(empresa=empresa, groups__name=Grupos.ADMIN_EMPRESA).exists():
+        if Usuario.objects.filter(empresa=empresa, roles__nombre=Grupos.ADMIN_EMPRESA).exists():
             return Response(
                 {'error': 'Esta empresa ya tiene un administrador registrado'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -120,8 +119,8 @@ class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
             area=area_admin
         )
 
-        grupo_admin_empresa = Group.objects.get(name=Grupos.ADMIN_EMPRESA)
-        admin_empresa.groups.add(grupo_admin_empresa)
+        rol_admin_empresa = Role.objects.get(nombre=Grupos.ADMIN_EMPRESA, empresa=None)
+        admin_empresa.roles.add(rol_admin_empresa)
 
         return Response({
             'mensaje': 'Empresa activada exitosamente',
@@ -133,13 +132,13 @@ class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
 class RegenerarTokenEmpresaAPIView(ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('empresas.regenerar_token')
     def post(self, request, pk):
         empresa, error = self.obtener_objeto_o_404(Empresa, pk)
         if error:
             return error
 
-        if Usuario.objects.filter(empresa=empresa, groups__name=Grupos.ADMIN_EMPRESA).exists():
+        if Usuario.objects.filter(empresa=empresa, roles__nombre=Grupos.ADMIN_EMPRESA).exists():
             return Response(
                 {'error': 'Esta empresa ya tiene un administrador. No se puede regenerar el token.'},
                 status=status.HTTP_400_BAD_REQUEST

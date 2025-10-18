@@ -5,25 +5,24 @@ from rest_framework.permissions import IsAuthenticated
 from Empresas.models import Area
 from Empresas.serializers import AreaSerializer
 from LAMBDA_gestion_pedidos_API.utils import (
-    requiere_grupos,
+    requiere_permisos,
     FiltradoEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
     manejar_errores_db
 )
-from Usuarios.models import Grupos
 
 
 class AreaListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('areas.listar')
     def get(self, request):
         areas = self.filtrar_por_empresa(request, Area.activos.all())
         serializer = AreaSerializer(areas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('areas.crear')
     def post(self, request):
         serializer = AreaSerializer(data=request.data)
         es_valido, error = self.validar_serializer(serializer)
@@ -40,7 +39,7 @@ class AreaListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, API
 class AreaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('areas.listar')
     @manejar_errores_db
     def get(self, request, pk):
         area, error = self.obtener_objeto_o_404(Area, pk)
@@ -50,7 +49,7 @@ class AreaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
         serializer = AreaSerializer(area)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('areas.editar')
     @manejar_errores_db
     def put(self, request, pk):
         area, error = self.obtener_objeto_o_404(Area, pk)
@@ -68,7 +67,7 @@ class AreaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
             'area': serializer.data
         }, status=status.HTTP_200_OK)
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('areas.eliminar')
     @manejar_errores_db
     def delete(self, request, pk):
         area, error = self.obtener_objeto_o_404(Area, pk)

@@ -1,22 +1,22 @@
+from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, Count, Q
-from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from Pedidos.models import Pedido
 from Pagos.models import Pago
 from Reportes.serializers import FiltroReporteSerializer
 from Reportes.utils import ReporteExcelGenerator, ReporteCSVGenerator
 from Reportes.utils_pdf import ReportePDFGenerator
-from LAMBDA_gestion_pedidos_API.utils import requiere_grupos
 from Usuarios.models import Grupos
+from LAMBDA_gestion_pedidos_API.utils import requiere_permisos
 
 
 class ReporteFacturacionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
     def get(self, request):
         serializer = FiltroReporteSerializer(data=request.query_params)
         if not serializer.is_valid():
@@ -28,7 +28,7 @@ class ReporteFacturacionAPIView(APIView):
         pedidos = Pedido.objects.filter(estado=True, estado_pedido=Pedido.Estados.COMPLETADO)
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pedidos = pedidos.filter(empresa=usuario.empresa)
 
         if filtros.get('empresa_id'):
@@ -86,7 +86,7 @@ class ReporteFacturacionAPIView(APIView):
 class ReportePagosAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
     def get(self, request):
         serializer = FiltroReporteSerializer(data=request.query_params)
         if not serializer.is_valid():
@@ -98,7 +98,7 @@ class ReportePagosAPIView(APIView):
         pagos = Pago.objects.filter(estado=True).select_related('pedido__empresa', 'validado_por')
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pagos = pagos.filter(pedido__empresa=usuario.empresa)
 
         if filtros.get('empresa_id'):
@@ -159,7 +159,7 @@ class ReportePagosAPIView(APIView):
 class ReporteConsolidadoFinancieroAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
     def get(self, request):
         periodo = request.query_params.get('periodo', 'mensual')
         formato = request.query_params.get('formato', 'excel')
@@ -170,7 +170,7 @@ class ReporteConsolidadoFinancieroAPIView(APIView):
         )
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pedidos = pedidos.filter(empresa=usuario.empresa)
 
         if periodo == 'mensual':

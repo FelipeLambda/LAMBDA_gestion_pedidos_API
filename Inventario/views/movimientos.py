@@ -12,7 +12,7 @@ from Inventario.serializers import (
 from Productos.models import Producto
 from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin
 )
@@ -22,7 +22,7 @@ from Usuarios.models import Grupos
 class MovimientoInventarioListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("inventario.listar_movimientos", "inventario.registrar_movimiento", "inventario.exportar")
     def get(self, request):
         movimientos = MovimientoInventario.objects.all()
 
@@ -52,7 +52,7 @@ class MovimientoInventarioListAPIView(APIView):
 class RegistrarMovimientoAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("inventario.listar_movimientos", "inventario.registrar_movimiento", "inventario.exportar")
     @manejar_errores_db
     def post(self, request):
         serializer = RegistrarMovimientoSerializer(data=request.data)

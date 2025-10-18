@@ -6,14 +6,14 @@ from Pedidos.models import Pedido
 from Reportes.serializers import FiltroReportePedidosSerializer
 from Reportes.utils import ReporteExcelGenerator, ReporteCSVGenerator
 from Reportes.utils_pdf import ReportePDFGenerator
-from LAMBDA_gestion_pedidos_API.utils import requiere_grupos
+from LAMBDA_gestion_pedidos_API.utils import requiere_permisos
 from Usuarios.models import Grupos
 
 
 class ExportarPedidosAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
     def get(self, request):
         serializer = FiltroReportePedidosSerializer(data=request.query_params)
         if not serializer.is_valid():
@@ -27,7 +27,7 @@ class ExportarPedidosAPIView(APIView):
         ).prefetch_related('detalles__producto')
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pedidos = pedidos.filter(empresa=usuario.empresa)
 
         if filtros.get('empresa_id'):

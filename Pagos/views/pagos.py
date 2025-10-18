@@ -13,7 +13,7 @@ from Pedidos.models import Pedido
 from Pagos.models import Pago
 from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
-    requiere_grupos,
+    requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin
 )
@@ -23,7 +23,7 @@ from Usuarios.models import Grupos
 class RegistrarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pagos.registrar')
     @manejar_errores_db
     def post(self, request):
         serializer = RegistrarPagoSerializer(data=request.data)
@@ -43,7 +43,7 @@ class RegistrarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
             return error
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             if pedido.empresa != usuario.empresa:
                 return Response(
                     {'error': 'No tiene permisos para registrar pagos de otras empresas'},
@@ -83,11 +83,11 @@ class RegistrarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
 class ListarPagosAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pagos.listar')
     def get(self, request):
         usuario = request.user
 
-        if usuario.is_superuser or usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             pagos = Pago.objects.all().select_related('pedido', 'validado_por')
         else:
             pagos = Pago.objects.filter(
@@ -111,14 +111,14 @@ class ListarPagosAPIView(APIView):
 class PagoDetailAPIView(ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_EMPRESA, Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pagos.ver')
     def get(self, request, pk):
         pago, error = self.obtener_objeto_o_404(Pago, pk)
         if error:
             return error
 
         usuario = request.user
-        if not usuario.is_superuser and not usuario.groups.filter(name=Grupos.ADMIN_SISTEMA).exists():
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
             if pago.pedido.empresa != usuario.empresa:
                 return Response(
                     {'error': 'No tiene permisos para ver pagos de otras empresas'},
@@ -132,7 +132,7 @@ class PagoDetailAPIView(ObjetoDetailMixin, APIView):
 class ValidarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_grupos(Grupos.ADMIN_SISTEMA)
+    @requiere_permisos('pagos.validar')
     @manejar_errores_db
     def patch(self, request, pk):
         pago, error = self.obtener_objeto_o_404(Pago, pk)
