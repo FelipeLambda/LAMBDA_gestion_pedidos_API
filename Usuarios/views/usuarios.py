@@ -38,6 +38,14 @@ class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, 
 
     @requiere_permisos('usuarios.crear')
     def post(self, request):
+        empresa_id = request.data.get('empresa')
+
+        if not self._puede_crear_usuario_para_empresa(request.user, empresa_id):
+            return Response(
+                {'error': 'No tiene permisos para crear usuarios para esta empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = RegistroUsuarioSerializer(data=request.data)
         es_valido, error = self.validar_serializer(serializer)
         if not es_valido:
@@ -58,6 +66,16 @@ class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, 
             'usuario': UsuarioSerializer(usuario).data
         }, status=status.HTTP_201_CREATED)
 
+    @staticmethod
+    def _puede_crear_usuario_para_empresa(usuario, empresa_id):
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return True
+
+        if usuario.empresa and usuario.empresa.id == empresa_id:
+            return True
+
+        return False
+
 
 class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, PermisosPorAreaMixin, APIView):
     permission_classes = [IsAuthenticated]
@@ -68,8 +86,37 @@ class UsuarioDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, Permiso
         if error:
             return error
 
+        if not self._puede_ver_usuario(request.user, usuario):
+            return Response(
+                {'error': 'No tiene permisos para ver este usuario'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = UsuarioSerializer(usuario)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _puede_ver_usuario(self, usuario_logueado, usuario_target):
+        if usuario_logueado.is_superuser or usuario_logueado.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return True
+
+        if usuario_logueado.id == usuario_target.id:
+            return True
+
+        if not usuario_logueado.empresa or not usuario_target.empresa:
+            return False
+
+        if usuario_logueado.empresa.id != usuario_target.empresa.id:
+            return False
+
+        if usuario_logueado.roles.filter(nombre=Grupos.ADMIN_EMPRESA).exists():
+            return True
+
+        if usuario_logueado.roles.filter(nombre=Grupos.JEFE_AREA).exists():
+            if usuario_logueado.area and usuario_target.area:
+                return usuario_logueado.area.id == usuario_target.area.id
+            return False
+
+        return False
 
     @requiere_permisos('usuarios.editar')
     @manejar_errores_db
@@ -101,6 +148,12 @@ class RegenerarTokenUsuarioAPIView(ObjetoDetailMixin, APIView):
         usuario, error = self.obtener_objeto_o_404(Usuario, pk, usar_soft_delete=False)
         if error:
             return error
+
+        if usuario.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes regenerar tokens de usuarios de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if usuario.is_active:
             return Response(

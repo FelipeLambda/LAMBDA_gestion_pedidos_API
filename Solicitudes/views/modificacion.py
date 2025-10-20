@@ -23,6 +23,12 @@ class ModificarSolicitudAbastecimientoAPIView(ObjetoDetailMixin, SerializerValid
         if error:
             return error
 
+        if solicitud.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre__in=['Admin Sistema']).exists():
+            return Response(
+                {'error': 'Solo puedes modificar solicitudes de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if solicitud.estado_solicitud != Solicitud.Estados.PENDIENTE_ABASTECIMIENTO:
             return Response(
                 {'error': f'Solo se pueden modificar solicitudes en estado PENDIENTE_ABASTECIMIENTO. Estado actual: {solicitud.get_estado_solicitud_display()}'},

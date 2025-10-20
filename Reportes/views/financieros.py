@@ -16,7 +16,7 @@ from LAMBDA_gestion_pedidos_API.utils import requiere_permisos
 class ReporteFacturacionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
+    @requiere_permisos("reportes.exportar_facturacion")
     def get(self, request):
         serializer = FiltroReporteSerializer(data=request.query_params)
         if not serializer.is_valid():
@@ -86,7 +86,7 @@ class ReporteFacturacionAPIView(APIView):
 class ReportePagosAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
+    @requiere_permisos("reportes.exportar_pagos")
     def get(self, request):
         serializer = FiltroReporteSerializer(data=request.query_params)
         if not serializer.is_valid():
@@ -159,7 +159,7 @@ class ReportePagosAPIView(APIView):
 class ReporteConsolidadoFinancieroAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
+    @requiere_permisos("reportes.exportar_consolidado_financiero")
     def get(self, request):
         periodo = request.query_params.get('periodo', 'mensual')
         formato = request.query_params.get('formato', 'excel')

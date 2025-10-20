@@ -28,6 +28,10 @@ class ExportarInventarioAPIView(APIView):
             'producto', 'usuario_responsable', 'pedido'
         )
 
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            movimientos = movimientos.filter(usuario_responsable__empresa=usuario.empresa)
+
         if filtros.get('fecha_desde'):
             movimientos = movimientos.filter(fecha_creacion__gte=filtros['fecha_desde'])
 

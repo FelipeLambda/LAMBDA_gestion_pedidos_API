@@ -13,7 +13,7 @@ from Usuarios.models import Grupos
 class ExportarPedidosAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("reportes.exportar_pedidos", "reportes.exportar_facturacion", "reportes.exportar_pagos", "reportes.exportar_solicitudes")
+    @requiere_permisos("reportes.exportar_pedidos")
     def get(self, request):
         serializer = FiltroReportePedidosSerializer(data=request.query_params)
         if not serializer.is_valid():

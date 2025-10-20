@@ -23,7 +23,15 @@ class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
 
     @requiere_permisos('empresas.listar')
     def get(self, request):
-        empresas = Empresa.activos.all()
+        usuario = request.user
+
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            empresas = Empresa.activos.all()
+        elif usuario.empresa:
+            empresas = Empresa.activos.filter(id=usuario.empresa.id)
+        else:
+            empresas = Empresa.activos.none()
+
         serializer = EmpresaSerializer(empresas, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -57,6 +65,12 @@ class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
         if error:
             return error
 
+        if not self._puede_ver_empresa(request.user, empresa):
+            return Response(
+                {'error': 'No tiene permisos para ver esta empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = EmpresaSerializer(empresa)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -66,6 +80,12 @@ class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
         empresa, error = self.obtener_objeto_o_404(Empresa, pk)
         if error:
             return error
+
+        if not self._puede_editar_empresa(request.user, empresa):
+            return Response(
+                {'error': 'No tiene permisos para editar esta empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = EmpresaSerializer(empresa, data=request.data, partial=True)
         es_valido, error = self.validar_serializer(serializer)
@@ -77,6 +97,24 @@ class EmpresaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
             'mensaje': 'Empresa actualizada exitosamente',
             'empresa': serializer.data
         }, status=status.HTTP_200_OK)
+
+    @staticmethod
+    def _es_admin_sistema(usuario):
+        return usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists()
+
+    def _puede_ver_empresa(self, usuario, empresa):
+        if self._es_admin_sistema(usuario):
+            return True
+        if usuario.empresa and usuario.empresa.id == empresa.id:
+            return True
+        return False
+
+    def _puede_editar_empresa(self, usuario, empresa):
+        if self._es_admin_sistema(usuario):
+            return True
+        if usuario.empresa and usuario.empresa.id == empresa.id and usuario.roles.filter(nombre=Grupos.ADMIN_EMPRESA).exists():
+            return True
+        return False
 
 
 class ActivarEmpresaAPIView(SerializerValidationMixin, APIView):
@@ -137,6 +175,12 @@ class RegenerarTokenEmpresaAPIView(ObjetoDetailMixin, APIView):
         empresa, error = self.obtener_objeto_o_404(Empresa, pk)
         if error:
             return error
+
+        if not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo Admin Sistema puede regenerar tokens de empresas'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if Usuario.objects.filter(empresa=empresa, roles__nombre=Grupos.ADMIN_EMPRESA).exists():
             return Response(

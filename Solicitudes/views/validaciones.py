@@ -32,6 +32,12 @@ class ValidarSolicitudBaseAPIView(ObjetoDetailMixin, SerializerValidationMixin, 
         if error:
             return error
 
+        if solicitud.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre__in=['Admin Sistema']).exists():
+            return Response(
+                {'error': 'Solo puedes validar solicitudes de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if solicitud.estado_solicitud != self.estado_requerido:
             return Response(
                 {'error': f'La solicitud debe estar en estado {self.get_nombre_estado_requerido()}. Estado actual: {solicitud.get_estado_solicitud_display()}'},

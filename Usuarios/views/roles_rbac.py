@@ -213,6 +213,12 @@ class AsignarRolUsuarioAPIView(ObjetoDetailMixin, SerializerValidationMixin, API
 
         rol = Role.objects.get(id=serializer.validated_data['rol_id'])
 
+        if rol.empresa and rol.empresa != usuario_target.empresa:
+            return Response(
+                {'error': f'El rol personalizado "{rol.nombre}" no pertenece a la empresa del usuario'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         if usuario_target.roles.filter(id=rol.id).exists():
             return Response(
                 {'error': f'El usuario ya tiene el rol "{rol.nombre}"'},

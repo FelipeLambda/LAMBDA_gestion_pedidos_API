@@ -26,6 +26,12 @@ class MovimientoInventarioListAPIView(APIView):
     def get(self, request):
         movimientos = MovimientoInventario.objects.all()
 
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            movimientos = movimientos.filter(
+                Q(pedido__empresa=usuario.empresa) | Q(pedido__isnull=True, usuario_responsable__empresa=usuario.empresa)
+            )
+
         tipo_movimiento = request.query_params.get('tipo_movimiento', None)
         if tipo_movimiento:
             movimientos = movimientos.filter(tipo_movimiento=tipo_movimiento)

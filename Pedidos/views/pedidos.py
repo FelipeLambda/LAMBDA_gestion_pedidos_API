@@ -113,6 +113,12 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
         if error:
             return error
 
+        if solicitud.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes crear pedidos desde solicitudes de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if not solicitud.empresa.tiene_areas_criticas():
             return Response({
                 'error': 'La empresa debe tener configuradas las áreas financiera y de abastecimiento antes de crear pedidos.'
@@ -172,6 +178,12 @@ class ActualizarEstadoPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
         if error:
             return error
+
+        if pedido.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes actualizar pedidos de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         serializer = ActualizarEstadoPedidoSerializer(data=request.data)
         es_valido, error = self.validar_serializer(serializer)
@@ -246,6 +258,12 @@ class EditarPedidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView)
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
         if error:
             return error
+
+        if pedido.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes editar pedidos de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if not pedido.puede_editarse:
             return Response(

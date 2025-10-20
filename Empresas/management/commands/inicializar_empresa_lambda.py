@@ -25,18 +25,20 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('[INFO] Empresa LAMBDA ya existe'))
 
         area_admin, created = Area.objects.get_or_create(
-            nombre='Administración',
+            nombre='Administración del Sistema',
             empresa=empresa_lambda,
             defaults={
-                'descripcion': 'Área administrativa de LAMBDA',
-                'estado': True
+                'descripcion': 'Área exclusiva para administradores del sistema LAMBDA',
+                'estado': True,
+                'es_area_financiera': False,
+                'es_area_abastecimiento': False
             }
         )
 
         if created:
-            self.stdout.write(self.style.SUCCESS('[OK] Área Administración creada'))
+            self.stdout.write(self.style.SUCCESS('[OK] Área "Administración del Sistema" creada'))
         else:
-            self.stdout.write(self.style.WARNING('[INFO] Área Administración ya existe'))
+            self.stdout.write(self.style.WARNING('[INFO] Área "Administración del Sistema" ya existe'))
 
         admin_email = 'admin@lambda.com'
         if not Usuario.objects.filter(email=admin_email).exists():

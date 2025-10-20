@@ -20,10 +20,15 @@ class AprobarPagoDiferidoAPIView(ObjetoDetailMixin, SerializerValidationMixin, A
     @requiere_permisos('pedidos.aprobar_pago_diferido')
     @manejar_errores_db
     def post(self, request, pk):
-        """Aprueba o rechaza el pago diferido de un pedido (solo Admin Sistema)"""
         pedido, error = self.obtener_objeto_o_404(Pedido, pk)
         if error:
             return error
+
+        if not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo Admin Sistema puede aprobar pagos diferidos'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if pedido.tipo_pago != 'DIFERIDO':
             return Response(
@@ -74,6 +79,10 @@ class ListarPedidosPagoDiferidoAPIView(APIView):
             tipo_pago='DIFERIDO',
             pago_diferido_aprobado=False
         ).select_related('empresa', 'solicitante')
+
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            pedidos = pedidos.filter(empresa=usuario.empresa)
 
         serializer = PedidoSerializer(pedidos, many=True)
         return Response({

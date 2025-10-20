@@ -28,7 +28,8 @@ class Command(BaseCommand):
                 'pagos.registrar', 'pagos.listar', 'pagos.ver', 'pagos.exportar',
                 'reportes.exportar_pedidos', 'reportes.exportar_facturacion',
                 'reportes.exportar_pagos', 'reportes.exportar_consolidado_financiero',
-                'reportes.exportar_solicitudes', 'reportes.exportar_excel',
+                'reportes.exportar_solicitudes', 'reportes.exportar_inventario',
+                'reportes.exportar_stock', 'reportes.exportar_excel',
                 'reportes.exportar_pdf', 'reportes.exportar_csv',
                 'reportes.ver_dashboard_financiero', 'reportes.comparar_periodos',
             ]
@@ -51,6 +52,7 @@ class Command(BaseCommand):
                 'pedidos.listar', 'pedidos.ver',
                 'pagos.listar', 'pagos.ver',
                 'reportes.exportar_pedidos', 'reportes.exportar_facturacion',
+                'reportes.exportar_pagos', 'reportes.exportar_consolidado_financiero',
                 'reportes.exportar_solicitudes',
             ]
         },
@@ -63,7 +65,8 @@ class Command(BaseCommand):
                 'solicitudes.validar_abastecimiento', 'solicitudes.modificar_abastecimiento',
                 'solicitudes.aprobar_abastecimiento', 'solicitudes.rechazar_abastecimiento',
                 'pedidos.listar', 'pedidos.ver',
-                'reportes.exportar_solicitudes',
+                'reportes.exportar_solicitudes', 'reportes.exportar_inventario',
+                'reportes.exportar_stock',
             ]
         },
         Grupos.SOLICITANTE: {

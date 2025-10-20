@@ -139,6 +139,12 @@ class ValidarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
         if error:
             return error
 
+        if pago.pedido.empresa != request.user.empresa and not request.user.is_superuser and not request.user.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            return Response(
+                {'error': 'Solo puedes validar pagos de tu empresa'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if pago.estado_pago in [Pago.Estados.COMPLETADO, Pago.Estados.RECHAZADO]:
             return Response(
                 {'error': 'Este pago ya fue validado'},
