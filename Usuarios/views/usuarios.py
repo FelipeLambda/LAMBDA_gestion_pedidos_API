@@ -17,11 +17,12 @@ from LAMBDA_gestion_pedidos_API.utils import (
     ObjetoDetailMixin,
     SerializerValidationMixin,
     PermisosPorAreaMixin,
+    PaginacionMixin,
     manejar_errores_db
 )
 
 
-class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
+class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_permisos('usuarios.listar')
@@ -33,8 +34,11 @@ class UsuarioListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, 
            not request.user.is_superuser:
             usuarios = usuarios.filter(area=request.user.area)
 
-        serializer = UsuarioSerializer(usuarios, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        usuarios = usuarios.order_by('-fecha_creacion')
+
+        usuarios_paginados = self.paginar_queryset(usuarios, request)
+        serializer = UsuarioSerializer(usuarios_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
     @requiere_permisos('usuarios.crear')
     def post(self, request):

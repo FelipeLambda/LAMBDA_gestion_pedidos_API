@@ -12,18 +12,18 @@ from LAMBDA_gestion_pedidos_API.utils import (
     requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionGrande,
     manejar_errores_db
 )
 from Usuarios.models import Grupos
 
 
-class ProductoListCreateAPIView(SerializerValidationMixin, APIView):
+class ProductoListCreateAPIView(SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionGrande
 
     def get(self, request):
-        """
-        Lista todos los productos activos.
-        """
         stock_bajo = request.query_params.get('stock_bajo')
         if stock_bajo and stock_bajo.lower() == 'true':
             productos = Producto.objects.con_stock_bajo()
@@ -41,8 +41,11 @@ class ProductoListCreateAPIView(SerializerValidationMixin, APIView):
                 Q(sku__icontains=buscar)
             )
 
-        serializer = ProductoListSerializer(productos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        productos = productos.order_by('nombre')
+
+        productos_paginados = self.paginar_queryset(productos, request)
+        serializer = ProductoListSerializer(productos_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
     @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
     def post(self, request):

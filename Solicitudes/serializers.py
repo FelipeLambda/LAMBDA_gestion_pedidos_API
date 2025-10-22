@@ -62,7 +62,7 @@ class SolicitudSerializer(serializers.ModelSerializer):
             'id', 'solicitante', 'estado_solicitud',
             'validador_financiero', 'fecha_validacion_financiero', 'observaciones_financiero',
             'validador_abastecimiento', 'fecha_validacion_abastecimiento', 'observaciones_abastecimiento',
-            'fecha_creacion', 'fecha_actualizacion'
+            'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
 
 

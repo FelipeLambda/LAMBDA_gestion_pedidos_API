@@ -20,26 +20,30 @@ from LAMBDA_gestion_pedidos_API.utils import (
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PaginacionMixin,
     manejar_errores_db,
     requiere_permisos
 )
 
 
-class PedidoListAPIView(FiltradoEmpresaMixin, APIView):
+class PedidoListAPIView(FiltradoEmpresaMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         usuario = request.user
 
         if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
-            pedidos = Pedido.objects.all()
+            pedidos = Pedido.objects.filter(estado=True)
         elif usuario.roles.filter(nombre=Grupos.ADMIN_EMPRESA).exists():
-            pedidos = self.filtrar_por_empresa(request, Pedido.objects.all())
+            pedidos = self.filtrar_por_empresa(request, Pedido.objects.filter(estado=True))
         else:
-            pedidos = Pedido.objects.filter(solicitante=usuario)
+            pedidos = Pedido.objects.filter(solicitante=usuario, estado=True)
 
-        serializer = PedidoSerializer(pedidos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        pedidos = pedidos.order_by('-fecha_creacion')
+
+        pedidos_paginados = self.paginar_queryset(pedidos, request)
+        serializer = PedidoSerializer(pedidos_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
 
 class PedidoDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoDetailMixin, APIView):

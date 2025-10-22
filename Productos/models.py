@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from cloudinary.models import CloudinaryField
 from Base.models import BaseModel, ActiveManager
 
 
@@ -25,6 +26,7 @@ class ProductoManager(models.Manager):
 class Producto(BaseModel):
     nombre = models.CharField(max_length=200, verbose_name='Nombre del producto')
     descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    imagen = CloudinaryField(blank=True, null=True, folder='productos', verbose_name='Imagen del producto')
     sku = models.CharField(max_length=50, unique=True, verbose_name='SKU')
     precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio unitario')
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, related_name='productos', null=True, blank=True, verbose_name='Categoría')

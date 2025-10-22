@@ -13,26 +13,30 @@ from LAMBDA_gestion_pedidos_API.utils import (
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PaginacionMixin,
     manejar_errores_db,
     requiere_permisos
 )
 
 
-class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
+class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         usuario = request.user
 
         if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
-            solicitudes = Solicitud.objects.all()
+            solicitudes = Solicitud.objects.filter(estado=True)
         elif usuario.roles.filter(nombre__in=[Grupos.ADMIN_EMPRESA, Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]).exists():
-            solicitudes = self.filtrar_por_empresa(request, Solicitud.objects.all())
+            solicitudes = self.filtrar_por_empresa(request, Solicitud.objects.filter(estado=True))
         else:
-            solicitudes = Solicitud.objects.filter(solicitante=usuario)
+            solicitudes = Solicitud.objects.filter(solicitante=usuario, estado=True)
 
-        serializer = SolicitudSerializer(solicitudes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        solicitudes = solicitudes.order_by('-fecha_creacion')
+
+        solicitudes_paginadas = self.paginar_queryset(solicitudes, request)
+        serializer = SolicitudSerializer(solicitudes_paginadas, many=True)
+        return self.get_paginated_response(serializer)
 
     @requiere_permisos('solicitudes.crear')
     @manejar_errores_db

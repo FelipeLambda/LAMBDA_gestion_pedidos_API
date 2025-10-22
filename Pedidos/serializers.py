@@ -68,7 +68,7 @@ class PedidoSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'numero_orden', 'solicitante', 'empresa',
             'fecha_completado', 'fecha_creacion', 'fecha_actualizacion',
-            'factura_enviada'
+            'factura_enviada', 'estado'
         ]
 
 

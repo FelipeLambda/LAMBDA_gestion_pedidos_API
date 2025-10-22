@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from Usuarios.models import Grupos
+from LAMBDA_gestion_pedidos_API.utils.pagination import PaginacionEstandar
 
 
 class FiltradoEmpresaMixin:
@@ -141,3 +142,21 @@ class SerializerValidationMixin:
                 status=status.HTTP_400_BAD_REQUEST
             )
         return True, None
+
+class PaginacionMixin:
+    pagination_class = None
+
+    def paginar_queryset(self, queryset, request):
+        if self.pagination_class is None:
+            self.pagination_class = PaginacionEstandar
+
+        self.paginator = self.pagination_class()
+        return self.paginator.paginate_queryset(queryset, request)
+
+    def get_paginated_response(self, serializer):
+        if not hasattr(self, 'paginator'):
+            if self.pagination_class is None:
+                self.pagination_class = PaginacionEstandar
+            self.paginator = self.pagination_class()
+
+        return self.paginator.get_paginated_response(serializer.data)

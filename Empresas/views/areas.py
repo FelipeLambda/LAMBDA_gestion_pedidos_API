@@ -9,18 +9,23 @@ from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionPequena,
     manejar_errores_db
 )
 
 
-class AreaListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, APIView):
+class AreaListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionPequena
 
     @requiere_permisos('areas.listar')
     def get(self, request):
         areas = self.filtrar_por_empresa(request, Area.activos.all())
-        serializer = AreaSerializer(areas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        areas = areas.order_by('nombre')
+        areas_paginadas = self.paginar_queryset(areas, request)
+        serializer = AreaSerializer(areas_paginadas, many=True)
+        return self.get_paginated_response(serializer)
 
     @requiere_permisos('areas.crear')
     def post(self, request):

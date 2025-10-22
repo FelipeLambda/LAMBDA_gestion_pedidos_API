@@ -15,7 +15,8 @@ from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
     requiere_permisos,
     ObjetoDetailMixin,
-    SerializerValidationMixin
+    SerializerValidationMixin,
+    PaginacionMixin
 )
 from Usuarios.models import Grupos
 
@@ -80,7 +81,7 @@ class RegistrarPagoAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView
         }, status=status.HTTP_201_CREATED)
 
 
-class ListarPagosAPIView(APIView):
+class ListarPagosAPIView(PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @requiere_permisos('pagos.listar')
@@ -102,10 +103,11 @@ class ListarPagosAPIView(APIView):
         if estado_pago:
             pagos = pagos.filter(estado_pago=estado_pago)
 
-        pagos = pagos.filter(estado=True)
+        pagos = pagos.filter(estado=True).order_by('-fecha_creacion')
 
-        serializer = PagoSerializer(pagos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        pagos_paginados = self.paginar_queryset(pagos, request)
+        serializer = PagoSerializer(pagos_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
 
 class PagoDetailAPIView(ObjetoDetailMixin, APIView):

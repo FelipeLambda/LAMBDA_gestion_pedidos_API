@@ -7,7 +7,8 @@ from .mixins import (
     PermisosPorEmpresaMixin,
     ObjetoDetailMixin,
     SerializerValidationMixin,
-    PermisosPorAreaMixin
+    PermisosPorAreaMixin,
+    PaginacionMixin
 )
 from .pagination import PaginacionEstandar, PaginacionGrande, PaginacionPequena
 
@@ -19,6 +20,7 @@ __all__ = [
     'ObjetoDetailMixin',
     'SerializerValidationMixin',
     'PermisosPorAreaMixin',
+    'PaginacionMixin',
     'PaginacionEstandar',
     'PaginacionGrande',
     'PaginacionPequena'

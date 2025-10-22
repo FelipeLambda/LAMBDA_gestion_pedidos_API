@@ -14,12 +14,15 @@ from LAMBDA_gestion_pedidos_API.utils import (
     requiere_permisos,
     ObjetoDetailMixin,
     SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionPequena,
     manejar_errores_db
 )
 
 
-class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
+class EmpresaListCreateAPIView(SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionPequena
 
     @requiere_permisos('empresas.listar')
     def get(self, request):
@@ -32,8 +35,11 @@ class EmpresaListCreateAPIView(SerializerValidationMixin, APIView):
         else:
             empresas = Empresa.activos.none()
 
-        serializer = EmpresaSerializer(empresas, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        empresas = empresas.order_by('-fecha_creacion')
+
+        empresas_paginadas = self.paginar_queryset(empresas, request)
+        serializer = EmpresaSerializer(empresas_paginadas, many=True)
+        return self.get_paginated_response(serializer)
 
     @requiere_permisos('empresas.crear')
     def post(self, request):

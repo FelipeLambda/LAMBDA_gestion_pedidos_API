@@ -19,7 +19,7 @@ class PagoSerializer(serializers.ModelSerializer):
             'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
         read_only_fields = [
-            'id', 'validado_por', 'fecha_creacion', 'fecha_actualizacion'
+            'id', 'validado_por', 'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
 
 

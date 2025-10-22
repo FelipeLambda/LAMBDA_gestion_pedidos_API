@@ -7,7 +7,7 @@ class EmpresaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Empresa
         fields = ['id', 'nombre', 'sector', 'nit', 'nombre_contacto', 'correo_contacto', 'pagar_despues', 'periodo_pago_dias', 'estado', 'fecha_creacion', 'fecha_actualizacion']
-        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'estado', 'fecha_creacion', 'fecha_actualizacion']
 
 
 class AreaSerializer(serializers.ModelSerializer):
@@ -16,7 +16,7 @@ class AreaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Area
         fields = ['id', 'nombre', 'descripcion', 'empresa', 'empresa_nombre', 'es_area_financiera', 'es_area_abastecimiento', 'estado', 'fecha_creacion', 'fecha_actualizacion']
-        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'estado', 'fecha_creacion', 'fecha_actualizacion']
 
     def validate(self, attrs):
         if attrs.get('es_area_financiera') and attrs.get('es_area_abastecimiento'):

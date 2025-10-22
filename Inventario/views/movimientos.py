@@ -14,13 +14,16 @@ from LAMBDA_gestion_pedidos_API.utils import (
     manejar_errores_db,
     requiere_permisos,
     ObjetoDetailMixin,
-    SerializerValidationMixin
+    SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionGrande
 )
 from Usuarios.models import Grupos
 
 
-class MovimientoInventarioListAPIView(APIView):
+class MovimientoInventarioListAPIView(PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionGrande
 
     @requiere_permisos("inventario.listar_movimientos", "inventario.registrar_movimiento", "inventario.exportar")
     def get(self, request):
@@ -51,8 +54,11 @@ class MovimientoInventarioListAPIView(APIView):
                 Q(producto__sku__icontains=search)
             )
 
-        serializer = MovimientoInventarioSerializer(movimientos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        movimientos = movimientos.order_by('-fecha_creacion')
+
+        movimientos_paginados = self.paginar_queryset(movimientos, request)
+        serializer = MovimientoInventarioSerializer(movimientos_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
 
 class RegistrarMovimientoAPIView(SerializerValidationMixin, APIView):
