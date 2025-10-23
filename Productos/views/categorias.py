@@ -23,7 +23,7 @@ class CategoriaListCreateAPIView(SerializerValidationMixin, APIView):
         serializer = CategoriaSerializer(categorias, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("categorias.crear")
     def post(self, request):
         """
         Crea una nueva categoría.
@@ -55,7 +55,7 @@ class CategoriaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
         serializer = CategoriaSerializer(categoria)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("categorias.editar")
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -76,7 +76,7 @@ class CategoriaDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVi
             'categoria': serializer.data
         }, status=status.HTTP_200_OK)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("categorias.eliminar")
     @manejar_errores_db
     def delete(self, request, pk):
         """

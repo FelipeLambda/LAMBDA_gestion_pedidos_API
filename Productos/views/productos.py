@@ -47,7 +47,7 @@ class ProductoListCreateAPIView(SerializerValidationMixin, PaginacionMixin, APIV
         serializer = ProductoListSerializer(productos_paginados, many=True)
         return self.get_paginated_response(serializer)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("productos.crear")
     def post(self, request):
         """
         Crea un nuevo producto.
@@ -79,7 +79,7 @@ class ProductoDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVie
         serializer = ProductoSerializer(producto)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("productos.editar")
     @manejar_errores_db
     def put(self, request, pk):
         """
@@ -105,7 +105,7 @@ class ProductoDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIVie
             'producto': ProductoSerializer(producto).data
         }, status=status.HTTP_200_OK)
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("productos.eliminar")
     @manejar_errores_db
     def delete(self, request, pk):
         """
@@ -127,7 +127,7 @@ class ProductoAlertasStockAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("productos.crear", "productos.editar", "productos.eliminar", "categorias.crear", "categorias.editar", "categorias.eliminar", "productos.ver_alertas_stock")
+    @requiere_permisos("productos.ver_alertas_stock")
     def get(self, request):
         """
         Lista productos con stock bajo.

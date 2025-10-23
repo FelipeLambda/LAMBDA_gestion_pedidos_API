@@ -25,7 +25,7 @@ class MovimientoInventarioListAPIView(PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = PaginacionGrande
 
-    @requiere_permisos("inventario.listar_movimientos", "inventario.registrar_movimiento", "inventario.exportar")
+    @requiere_permisos("inventario.listar_movimientos")
     def get(self, request):
         movimientos = MovimientoInventario.objects.all()
 
@@ -64,7 +64,7 @@ class MovimientoInventarioListAPIView(PaginacionMixin, APIView):
 class RegistrarMovimientoAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_permisos("inventario.listar_movimientos", "inventario.registrar_movimiento", "inventario.exportar")
+    @requiere_permisos("inventario.registrar_movimiento")
     @manejar_errores_db
     def post(self, request):
         serializer = RegistrarMovimientoSerializer(data=request.data)
