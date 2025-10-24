@@ -7,28 +7,25 @@ from Productos.models import Producto
 
 
 class SolicitudManager(models.Manager):
-    """Manager personalizado para Solicitud con consultas específicas"""
-
     def pendientes_abastecimiento(self):
-        return self.filter(estado=True, estado_solicitud='PENDIENTE_ABASTECIMIENTO')
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.PENDIENTE_ABASTECIMIENTO)
 
     def pendientes_finanzas(self):
-        return self.filter(estado=True, estado_solicitud='PENDIENTE_FINANZAS')
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.PENDIENTE_FINANZAS)
 
     def aprobadas(self):
-        return self.filter(estado=True, estado_solicitud='APROBADA')
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.LISTO_PARA_COMPRA)
 
     def rechazadas(self):
-        return self.filter(estado=True, estado_solicitud='RECHAZADA')
+        return self.filter(estado=True, estado_solicitud=self.model.Estados.RECHAZADA)
 
 
 class Solicitud(BaseModel):
-    ESTADOS_SOLICITUD = [
-        ('PENDIENTE_ABASTECIMIENTO', 'Pendiente de Validación Abastecimiento'),
-        ('PENDIENTE_FINANZAS', 'Pendiente de Validación Financiera'),
-        ('APROBADA', 'Aprobada'),
-        ('RECHAZADA', 'Rechazada'),
-    ]
+    class Estados(models.TextChoices):
+        PENDIENTE_ABASTECIMIENTO = 'PENDIENTE_ABASTECIMIENTO', 'Pendiente de Validación Abastecimiento'
+        PENDIENTE_FINANZAS = 'PENDIENTE_FINANZAS', 'Pendiente de Validación Financiera'
+        LISTO_PARA_COMPRA = 'LISTO_PARA_COMPRA', 'Listo para Compra'
+        RECHAZADA = 'RECHAZADA', 'Rechazada'
 
     empresa = models.ForeignKey(
         Empresa,
@@ -52,8 +49,8 @@ class Solicitud(BaseModel):
     )
     estado_solicitud = models.CharField(
         max_length=30,
-        choices=ESTADOS_SOLICITUD,
-        default='PENDIENTE_ABASTECIMIENTO',
+        choices=Estados.choices,
+        default=Estados.PENDIENTE_ABASTECIMIENTO,
         verbose_name='Estado de la solicitud'
     )
     observaciones = models.TextField(
@@ -129,12 +126,12 @@ class Solicitud(BaseModel):
         return self.detalles.count()
 
     @property
-    def esta_aprobada(self):
-        return self.estado_solicitud == 'APROBADA'
+    def esta_lista_para_compra(self):
+        return self.estado_solicitud == Solicitud.Estados.LISTO_PARA_COMPRA
 
     @property
     def puede_convertirse_a_pedido(self):
-        return self.esta_aprobada
+        return self.esta_lista_para_compra
 
 
 class DetalleSolicitud(BaseModel):
@@ -169,16 +166,6 @@ class DetalleSolicitud(BaseModel):
     def __str__(self):
         return f"{self.producto.nombre} x{self.cantidad}"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError('La cantidad debe ser mayor a 0.')
-        if self.precio_unitario < 0:
-            raise ValidationError('El precio unitario no puede ser negativo.')
-
     @property
     def subtotal(self):
         return self.cantidad * self.precio_unitario
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)

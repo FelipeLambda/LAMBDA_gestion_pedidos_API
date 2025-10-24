@@ -1,79 +1,102 @@
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
+from datetime import datetime
 
 
 class EmailService:
 
-    @staticmethod
-    def enviar_email_activacion(usuario, token):
-
-        activation_url = f"{settings.FRONTEND_URL}/activar-cuenta?token={token}"
-
-        context = {
-            'usuario': usuario,
-            'activation_url': activation_url,
-            'dias_expiracion': 7
-        }
-
-        html_message = render_to_string('emails/activacion_usuario.html', context)
-        plain_message = strip_tags(html_message)
-
+    @classmethod
+    def _enviar_desde_template(cls, template_name, context, destinatario, asunto):
+        mensaje = render_to_string(f'emails/{template_name}', context)
         send_mail(
-            subject='Bienvenido a Lambda Commerce',
-            message=plain_message,
+            subject=asunto,
+            message=mensaje,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[usuario.email],
-            html_message=html_message,
+            recipient_list=[destinatario],
             fail_silently=False,
         )
 
-    @staticmethod
-    def enviar_email_activacion_empresa(empresa, token):
-        """
-        Envía email de activación a una empresa nueva.
-        """
-        activation_url = f"{settings.FRONTEND_URL}/activar-cuenta?token={token}"
-
-        context = {
-            'empresa': empresa,
-            'activation_url': activation_url,
-            'dias_expiracion': 7
-        }
-
-        html_message = render_to_string('emails/activacion_empresa.html', context)
-        plain_message = strip_tags(html_message)
-
-        send_mail(
-            subject='Bienvenido a Lambda Commerce Solutions',
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[empresa.correo_contacto],
-            html_message=html_message,
-            fail_silently=False,
+    @classmethod
+    def enviar_email_activacion(cls, usuario, token):
+        url = f"{settings.FRONTEND_URL}/activar-cuenta?token={token}"
+        cls._enviar_desde_template(
+            template_name='activacion_usuario.txt',
+            context={'usuario': usuario, 'url': url},
+            destinatario=usuario.email,
+            asunto='Bienvenido a Lambda Commerce'
         )
 
-    @staticmethod
-    def enviar_email_recuperacion_password(usuario, token):
-        """
-        Envía email de recuperación de contraseña.
-        """
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-
-        context = {
-            'usuario': usuario,
-            'reset_url': reset_url
-        }
-
-        html_message = render_to_string('emails/recuperacion_password.html', context)
-        plain_message = strip_tags(html_message)
-
-        send_mail(
-            subject='Recuperación de contraseña - Lambda Commerce',
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[usuario.email],
-            html_message=html_message,
-            fail_silently=False,
+    @classmethod
+    def enviar_email_activacion_empresa(cls, empresa, token):
+        url = f"{settings.FRONTEND_URL}/activar-cuenta?token={token}"
+        cls._enviar_desde_template(
+            template_name='activacion_empresa.txt',
+            context={'empresa': empresa, 'url': url},
+            destinatario=empresa.correo_contacto,
+            asunto='Bienvenido a Lambda Commerce Solutions'
         )
+
+    @classmethod
+    def enviar_email_recuperacion_password(cls, usuario, token):
+        url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        cls._enviar_desde_template(
+            template_name='recuperacion_password.txt',
+            context={'usuario': usuario, 'url': url},
+            destinatario=usuario.email,
+            asunto='Recuperación de contraseña - Lambda Commerce'
+        )
+
+    @classmethod
+    def enviar_recordatorio_pago_previo(cls, pedido):
+        cls._enviar_desde_template(
+            template_name='recordatorio_pago_previo.txt',
+            context={
+                'pedido': pedido,
+                'fecha_limite': pedido.fecha_limite_pago.strftime('%d/%m/%Y')
+            },
+            destinatario=pedido.solicitante.email,
+            asunto=f'Recordatorio: Pago próximo a vencer - {pedido.numero_orden}'
+        )
+
+    @classmethod
+    def enviar_notificacion_mora(cls, pedido, dias_vencido, numero_recordatorio):
+        es_accion_legal = numero_recordatorio == 5
+
+        template_name = 'notificacion_mora_legal.txt' if es_accion_legal else 'notificacion_mora.txt'
+        asunto = (
+            f'URGENTE - ACCIONES LEGALES: Pago Vencido - {pedido.numero_orden}'
+            if es_accion_legal
+            else f'MORA {numero_recordatorio}/5: Pago Vencido - {pedido.numero_orden}'
+        )
+
+        cls._enviar_desde_template(
+            template_name=template_name,
+            context={
+                'pedido': pedido,
+                'dias_vencido': dias_vencido,
+                'numero_recordatorio': numero_recordatorio,
+                'fecha_limite': pedido.fecha_limite_pago.strftime('%d/%m/%Y')
+            },
+            destinatario=pedido.solicitante.email,
+            asunto=asunto
+        )
+
+    @classmethod
+    def enviar_factura_pdf(cls, pedido, pdf_bytes):
+        mensaje = render_to_string('emails/factura_pedido.txt', {
+            'pedido': pedido,
+            'solicitante': pedido.solicitante,
+            'empresa': pedido.empresa
+        })
+
+        filename = f"Factura_{pedido.numero_orden}_{datetime.now().strftime('%Y%m%d')}.pdf"
+
+        email = EmailMessage(
+            subject=f'Factura de Compra - {pedido.numero_orden}',
+            body=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[pedido.solicitante.email]
+        )
+        email.attach(filename, pdf_bytes, 'application/pdf')
+        email.send(fail_silently=False)

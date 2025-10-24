@@ -1,0 +1,15 @@
+Hola {{ pedido.solicitante.nombre }},
+
+Recordatorio de Pago Próximo a Vencer
+
+Empresa: {{ pedido.empresa.nombre }}
+Número de Orden: {{ pedido.numero_orden }}
+Fecha Límite: {{ fecha_limite }}
+Monto Total: ${{ pedido.total }}
+
+Le recordamos que su pago vence en 3 días.
+
+Por favor, realice el pago antes de la fecha límite para evitar inconvenientes.
+
+Saludos,
+Equipo Lambda Commerce

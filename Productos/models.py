@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from cloudinary.models import CloudinaryField
 from Base.models import BaseModel, ActiveManager
 
 
@@ -18,16 +19,14 @@ class Categoria(BaseModel):
 
 
 class ProductoManager(models.Manager):
-    """Manager personalizado para Producto con consultas específicas"""
-
     def con_stock_bajo(self):
-        """Retorna productos activos con stock por debajo del umbral mínimo"""
         return self.filter(estado=True, stock_disponible__lt=models.F('umbral_minimo'))
 
 
 class Producto(BaseModel):
     nombre = models.CharField(max_length=200, verbose_name='Nombre del producto')
     descripcion = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    imagen = CloudinaryField(blank=True, null=True, folder='productos', verbose_name='Imagen del producto')
     sku = models.CharField(max_length=50, unique=True, verbose_name='SKU')
     precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio unitario')
     categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, related_name='productos', null=True, blank=True, verbose_name='Categoría')
@@ -48,9 +47,6 @@ class Producto(BaseModel):
 
     @property
     def stock_bajo(self):
-        """
-        Retorna True si el stock disponible está por debajo del umbral mínimo.
-        """
         return self.stock_disponible < self.umbral_minimo
 
     @property
@@ -61,13 +57,13 @@ class Producto(BaseModel):
         from Inventario.models import MovimientoInventario
         reservas = MovimientoInventario.objects.filter(
             producto=self,
-            tipo_movimiento='RESERVA',
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
             estado=True
         ).aggregate(total=models.Sum('cantidad'))['total'] or 0
 
         liberaciones = MovimientoInventario.objects.filter(
             producto=self,
-            tipo_movimiento='LIBERACION_RESERVA',
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
             estado=True
         ).aggregate(total=models.Sum('cantidad'))['total'] or 0
 
@@ -75,73 +71,55 @@ class Producto(BaseModel):
 
     @property
     def stock_disponible_real(self):
-        """
-        Retorna el stock realmente disponible (sin contar reservas).
-        """
         return self.stock_disponible - self.stock_reservado
 
     def tiene_stock_suficiente(self, cantidad):
-        """
-        Verifica si hay stock suficiente disponible (sin contar reservas).
-        """
         return self.stock_disponible_real >= cantidad
 
-    def registrar_entrada(self, cantidad, usuario, observaciones=''):
-        """
-        Registra una entrada de stock.
-        """
+    def reservar_stock(self, cantidad, usuario=None, referencia=None):
+        """Reserva stock del producto creando un movimiento de inventario"""
         from Inventario.models import MovimientoInventario
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='ENTRADA',
-            producto=self,
-            cantidad=cantidad,
-            usuario_responsable=usuario,
-            observaciones=observaciones
-        )
 
-    def registrar_salida(self, cantidad, usuario, observaciones=''):
-        """
-        Registra una salida de stock.
-        """
-        from Inventario.models import MovimientoInventario
         if not self.tiene_stock_suficiente(cantidad):
-            raise ValidationError(f'Stock insuficiente. Disponible: {self.stock_disponible_real}')
+            raise ValidationError(f'Stock insuficiente para {self.nombre}. Disponible: {self.stock_disponible_real}, Solicitado: {cantidad}')
 
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='SALIDA',
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
             producto=self,
             cantidad=cantidad,
-            usuario_responsable=usuario,
-            observaciones=observaciones
+            usuario=usuario,
+            observaciones=f'Reserva de stock - {referencia}' if referencia else 'Reserva de stock'
         )
 
-    def reservar_stock(self, cantidad, usuario, pedido, observaciones=''):
-        """
-        Reserva stock para un pedido.
-        """
+        return True
+
+    def liberar_stock(self, cantidad, usuario=None, referencia=None):
+        """Libera stock previamente reservado"""
         from Inventario.models import MovimientoInventario
-        if not self.tiene_stock_suficiente(cantidad):
-            raise ValidationError(f'Stock insuficiente para reservar. Disponible: {self.stock_disponible_real}')
 
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='RESERVA',
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
             producto=self,
             cantidad=cantidad,
-            usuario_responsable=usuario,
-            pedido=pedido,
-            observaciones=observaciones
+            usuario=usuario,
+            observaciones=f'Liberación de stock - {referencia}' if referencia else 'Liberación de stock'
         )
 
-    def liberar_reserva(self, cantidad, usuario, pedido, observaciones=''):
-        """
-        Libera una reserva de stock.
-        """
+        return True
+
+    def descontar_stock(self, cantidad, usuario=None, referencia=None):
+        """Descuenta stock del inventario (venta confirmada)"""
         from Inventario.models import MovimientoInventario
-        return MovimientoInventario.objects.create(
-            tipo_movimiento='LIBERACION_RESERVA',
+
+        if self.stock_disponible < cantidad:
+            raise ValidationError(f'Stock insuficiente para {self.nombre}. Disponible: {self.stock_disponible}, Solicitado: {cantidad}')
+
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.VENTA,
             producto=self,
             cantidad=cantidad,
-            usuario_responsable=usuario,
-            pedido=pedido,
-            observaciones=observaciones
+            usuario=usuario,
+            observaciones=f'Venta - {referencia}' if referencia else 'Venta'
         )
+
+        return True

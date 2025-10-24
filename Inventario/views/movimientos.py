@@ -10,15 +10,30 @@ from Inventario.serializers import (
     StockProductoSerializer
 )
 from Productos.models import Producto
-from LAMBDA_gestion_pedidos_API.utils import manejar_errores_db, requiere_admin_sistema
+from LAMBDA_gestion_pedidos_API.utils import (
+    manejar_errores_db,
+    requiere_permisos,
+    ObjetoDetailMixin,
+    SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionGrande
+)
+from Usuarios.models import Grupos
 
 
-class MovimientoInventarioListAPIView(APIView):
+class MovimientoInventarioListAPIView(PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionGrande
 
-    @requiere_admin_sistema
+    @requiere_permisos("inventario.listar_movimientos")
     def get(self, request):
         movimientos = MovimientoInventario.objects.all()
+
+        usuario = request.user
+        if not usuario.is_superuser and not usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            movimientos = movimientos.filter(
+                Q(pedido__empresa=usuario.empresa) | Q(pedido__isnull=True, usuario_responsable__empresa=usuario.empresa)
+            )
 
         tipo_movimiento = request.query_params.get('tipo_movimiento', None)
         if tipo_movimiento:
@@ -39,64 +54,56 @@ class MovimientoInventarioListAPIView(APIView):
                 Q(producto__sku__icontains=search)
             )
 
-        serializer = MovimientoInventarioSerializer(movimientos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        movimientos = movimientos.order_by('-fecha_creacion')
+
+        movimientos_paginados = self.paginar_queryset(movimientos, request)
+        serializer = MovimientoInventarioSerializer(movimientos_paginados, many=True)
+        return self.get_paginated_response(serializer)
 
 
-class RegistrarMovimientoAPIView(APIView):
+class RegistrarMovimientoAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_sistema
+    @requiere_permisos("inventario.registrar_movimiento")
     @manejar_errores_db
     def post(self, request):
         serializer = RegistrarMovimientoSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
         tipo_movimiento = serializer.validated_data['tipo_movimiento']
-        producto_id = serializer.validated_data['producto_id']
+        producto = serializer.validated_data['producto']
         cantidad = serializer.validated_data['cantidad']
         observaciones = serializer.validated_data.get('observaciones', '')
 
-        try:
-            producto = Producto.objects.get(pk=producto_id, estado=True)
+        movimiento = MovimientoInventario.objects.create(
+            tipo_movimiento=tipo_movimiento,
+            producto=producto,
+            cantidad=cantidad,
+            usuario_responsable=request.user,
+            observaciones=observaciones
+        )
 
-            if tipo_movimiento == 'ENTRADA':
-                movimiento = producto.registrar_entrada(
-                    cantidad=cantidad,
-                    usuario=request.user,
-                    observaciones=observaciones
-                )
-            else: 
-                movimiento = producto.registrar_salida(
-                    cantidad=cantidad,
-                    usuario=request.user,
-                    observaciones=observaciones
-                )
+        if movimiento.es_incremento:
+            producto.stock_disponible += cantidad
+        else:
+            producto.stock_disponible -= cantidad
+        producto.save()
 
-            return Response({
-                'mensaje': f'{tipo_movimiento.capitalize()} registrada exitosamente',
-                'movimiento': MovimientoInventarioSerializer(movimiento).data
-            }, status=status.HTTP_201_CREATED)
-
-        except Producto.DoesNotExist:
-            return Response(
-                {'error': 'Producto no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        return Response({
+            'mensaje': f'{movimiento.get_tipo_movimiento_display()} registrado exitosamente',
+            'movimiento': MovimientoInventarioSerializer(movimiento).data
+        }, status=status.HTTP_201_CREATED)
 
 
-class StockProductoAPIView(APIView):
+class StockProductoAPIView(ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
-        try:
-            producto = Producto.objects.get(pk=pk, estado=True)
-            serializer = StockProductoSerializer(producto)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        producto, error = self.obtener_objeto_o_404(Producto, pk)
+        if error:
+            return error
 
-        except Producto.DoesNotExist:
-            return Response(
-                {'error': 'Producto no encontrado'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        serializer = StockProductoSerializer(producto)
+        return Response(serializer.data, status=status.HTTP_200_OK)

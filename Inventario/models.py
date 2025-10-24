@@ -6,32 +6,37 @@ from Usuarios.models import Usuario
 
 
 class MovimientoInventarioManager(models.Manager):
-    """Manager personalizado para MovimientoInventario con consultas específicas"""
-
     def entradas(self):
-        return self.filter(estado=True, tipo_movimiento='ENTRADA')
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.ENTRADA)
 
     def salidas(self):
-        return self.filter(estado=True, tipo_movimiento='SALIDA')
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.SALIDA)
 
     def reservas_activas(self):
-        return self.filter(estado=True, tipo_movimiento='RESERVA')
+        return self.filter(estado=True, tipo_movimiento=self.model.TiposMovimiento.RESERVA)
 
     def por_producto(self, producto):
         return self.filter(estado=True, producto=producto)
 
 
 class MovimientoInventario(BaseModel):
-    TIPOS_MOVIMIENTO = [
-        ('ENTRADA', 'Entrada de Stock'),
-        ('SALIDA', 'Salida de Stock'),
-        ('RESERVA', 'Reserva de Stock'),
-        ('LIBERACION_RESERVA', 'Liberación de Reserva'),
-    ]
+    class TiposMovimiento(models.TextChoices):
+        COMPRA_PROVEEDOR = 'COMPRA_PROVEEDOR', 'Compra a Proveedor'
+        DEVOLUCION_CLIENTE = 'DEVOLUCION_CLIENTE', 'Devolución de Cliente'
+        AJUSTE_POSITIVO = 'AJUSTE_POSITIVO', 'Ajuste Positivo'
+        CORRECCION_ERROR = 'CORRECCION_ERROR', 'Corrección de Error'
+
+        VENTA = 'VENTA', 'Venta'
+        MERMA = 'MERMA', 'Merma/Deterioro'
+        DANO = 'DANO', 'Producto Dañado'
+        AJUSTE_NEGATIVO = 'AJUSTE_NEGATIVO', 'Ajuste Negativo'
+
+        RESERVA = 'RESERVA', 'Reserva de Stock'
+        LIBERACION_RESERVA = 'LIBERACION_RESERVA', 'Liberación de Reserva'
 
     tipo_movimiento = models.CharField(
         max_length=30,
-        choices=TIPOS_MOVIMIENTO,
+        choices=TiposMovimiento.choices,
         verbose_name='Tipo de movimiento'
     )
     producto = models.ForeignKey(
@@ -75,46 +80,30 @@ class MovimientoInventario(BaseModel):
     def __str__(self):
         return f"{self.get_tipo_movimiento_display()} - {self.producto.nombre} x{self.cantidad}"
 
-    def clean(self):
-        if self.cantidad <= 0:
-            raise ValidationError('La cantidad debe ser mayor a 0.')
-
-        if self.tipo_movimiento in ['RESERVA', 'LIBERACION_RESERVA'] and not self.pedido:
-            raise ValidationError('Las reservas y liberaciones deben tener un pedido asociado.')
-
-        if self.tipo_movimiento in ['SALIDA', 'RESERVA']:
-            if not self.pk: 
-                stock_disponible = self.producto.stock_disponible - self.producto.stock_reservado
-                if self.cantidad > stock_disponible:
-                    raise ValidationError(
-                        f'Stock insuficiente. Disponible: {stock_disponible}, Solicitado: {self.cantidad}'
-                    )
-
     @property
     def afecta_stock_disponible(self):
-        return self.tipo_movimiento in ['ENTRADA', 'SALIDA']
+        T = MovimientoInventario.TiposMovimiento
+        return self.tipo_movimiento in [
+            T.COMPRA_PROVEEDOR, T.DEVOLUCION_CLIENTE, T.AJUSTE_POSITIVO, T.CORRECCION_ERROR,
+            T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO
+        ]
 
     @property
     def afecta_stock_reservado(self):
-        return self.tipo_movimiento in ['RESERVA', 'LIBERACION_RESERVA']
+        T = MovimientoInventario.TiposMovimiento
+        return self.tipo_movimiento in [T.RESERVA, T.LIBERACION_RESERVA]
 
     @property
     def es_incremento(self):
-        return self.tipo_movimiento in ['ENTRADA', 'LIBERACION_RESERVA']
+        T = MovimientoInventario.TiposMovimiento
+        return self.tipo_movimiento in [
+            T.COMPRA_PROVEEDOR, T.DEVOLUCION_CLIENTE, T.AJUSTE_POSITIVO,
+            T.CORRECCION_ERROR, T.LIBERACION_RESERVA
+        ]
 
     @property
     def es_decremento(self):
-        return self.tipo_movimiento in ['SALIDA', 'RESERVA']
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-
-        if not self.pk:  
-            if self.tipo_movimiento == 'ENTRADA':
-                self.producto.stock_disponible += self.cantidad
-            elif self.tipo_movimiento == 'SALIDA':
-                self.producto.stock_disponible -= self.cantidad
-
-            self.producto.save()
-
-        super().save(*args, **kwargs)
+        T = MovimientoInventario.TiposMovimiento
+        return self.tipo_movimiento in [
+            T.VENTA, T.MERMA, T.DANO, T.AJUSTE_NEGATIVO, T.RESERVA
+        ]

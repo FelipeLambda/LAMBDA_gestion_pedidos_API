@@ -8,16 +8,22 @@ from Productos.serializers import (
     ProductoSerializer, ProductoListSerializer,
     ProductoCreateUpdateSerializer
 )
-from LAMBDA_gestion_pedidos_API.utils import requiere_admin_sistema, manejar_errores_db
+from LAMBDA_gestion_pedidos_API.utils import (
+    requiere_permisos,
+    ObjetoDetailMixin,
+    SerializerValidationMixin,
+    PaginacionMixin,
+    PaginacionGrande,
+    manejar_errores_db
+)
+from Usuarios.models import Grupos
 
 
-class ProductoListCreateAPIView(APIView):
+class ProductoListCreateAPIView(SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionGrande
 
     def get(self, request):
-        """
-        Lista todos los productos activos.
-        """
         stock_bajo = request.query_params.get('stock_bajo')
         if stock_bajo and stock_bajo.lower() == 'true':
             productos = Producto.objects.con_stock_bajo()
@@ -35,25 +41,30 @@ class ProductoListCreateAPIView(APIView):
                 Q(sku__icontains=buscar)
             )
 
-        serializer = ProductoListSerializer(productos, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        productos = productos.order_by('nombre')
 
-    @requiere_admin_sistema
+        productos_paginados = self.paginar_queryset(productos, request)
+        serializer = ProductoListSerializer(productos_paginados, many=True)
+        return self.get_paginated_response(serializer)
+
+    @requiere_permisos("productos.crear")
     def post(self, request):
         """
         Crea un nuevo producto.
         """
         serializer = ProductoCreateUpdateSerializer(data=request.data)
-        if serializer.is_valid():
-            producto = serializer.save()
-            return Response({
-                'mensaje': 'Producto creado exitosamente',
-                'producto': ProductoSerializer(producto).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        producto = serializer.save()
+        return Response({
+            'mensaje': 'Producto creado exitosamente',
+            'producto': ProductoSerializer(producto).data
+        }, status=status.HTTP_201_CREATED)
 
 
-class ProductoDetailAPIView(APIView):
+class ProductoDetailAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @manejar_errores_db
@@ -61,52 +72,53 @@ class ProductoDetailAPIView(APIView):
         """
         Obtiene el detalle de un producto.
         """
-        try:
-            producto = Producto.objects.get(pk=pk)
-            serializer = ProductoSerializer(producto)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Producto.DoesNotExist:
-            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        producto, error = self.obtener_objeto_o_404(Producto, pk)
+        if error:
+            return error
 
-    @requiere_admin_sistema
+        serializer = ProductoSerializer(producto)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @requiere_permisos("productos.editar")
     @manejar_errores_db
     def put(self, request, pk):
         """
         Actualiza un producto.
         """
-        try:
-            producto = Producto.objects.get(pk=pk)
+        producto, error = self.obtener_objeto_o_404(Producto, pk)
+        if error:
+            return error
 
-            if 'stock_disponible' in request.data:
-                return Response({
-                    'error': 'El stock no puede modificarse directamente. Use el módulo de Inventarios.'
-                }, status=status.HTTP_400_BAD_REQUEST)
+        if 'stock_disponible' in request.data:
+            return Response({
+                'error': 'El stock no puede modificarse directamente. Use el módulo de Inventarios.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = ProductoCreateUpdateSerializer(producto, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({
-                    'mensaje': 'Producto actualizado exitosamente',
-                    'producto': ProductoSerializer(producto).data
-                }, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Producto.DoesNotExist:
-            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ProductoCreateUpdateSerializer(producto, data=request.data, partial=True)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
-    @requiere_admin_sistema
+        serializer.save()
+        return Response({
+            'mensaje': 'Producto actualizado exitosamente',
+            'producto': ProductoSerializer(producto).data
+        }, status=status.HTTP_200_OK)
+
+    @requiere_permisos("productos.eliminar")
     @manejar_errores_db
     def delete(self, request, pk):
         """
         Desactiva un producto (soft delete).
         """
-        try:
-            producto = Producto.objects.get(pk=pk)
-            producto.soft_delete()
-            return Response({
-                'mensaje': 'Producto desactivado exitosamente'
-            }, status=status.HTTP_200_OK)
-        except Producto.DoesNotExist:
-            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        producto, error = self.obtener_objeto_o_404(Producto, pk)
+        if error:
+            return error
+
+        producto.soft_delete()
+        return Response({
+            'mensaje': 'Producto desactivado exitosamente'
+        }, status=status.HTTP_200_OK)
 
 
 class ProductoAlertasStockAPIView(APIView):
@@ -115,7 +127,7 @@ class ProductoAlertasStockAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    @requiere_admin_sistema
+    @requiere_permisos("productos.ver_alertas_stock")
     def get(self, request):
         """
         Lista productos con stock bajo.

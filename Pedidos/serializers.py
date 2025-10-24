@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Pedido, DetallePedido
 from Solicitudes.models import Solicitud
+from Pagos.models import Pago
 from Base.serializers import DetalleBaseSerializer
 
 
@@ -22,7 +23,26 @@ class DetallePedidoSerializer(DetalleBaseSerializer):
 class DetallePedidoCreateSerializer(DetalleBaseSerializer):
     class Meta:
         model = DetallePedido
-        fields = ['producto', 'cantidad']
+        fields = ['producto', 'cantidad', 'precio_unitario']
+        extra_kwargs = {
+            'cantidad': {
+                'required': True,
+                'min_value': 1
+            },
+            'precio_unitario': {
+                'min_value': 0
+            }
+        }
+
+    def validate_cantidad(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
+        return value
+
+    def validate_precio_unitario(self, value):
+        if value < 0:
+            raise serializers.ValidationError("El precio unitario no puede ser negativo.")
+        return value
 
 
 class PedidoSerializer(serializers.ModelSerializer):
@@ -41,12 +61,15 @@ class PedidoSerializer(serializers.ModelSerializer):
             'empresa', 'empresa_nombre',
             'solicitante', 'solicitante_nombre', 'solicitante_email',
             'estado_pedido', 'observaciones', 'fecha_completado',
+            'tipo_pago', 'fecha_limite_pago', 'pago_diferido_aprobado',
+            'factura_enviada',
             'detalles', 'total', 'cantidad_items',
             'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
         read_only_fields = [
             'id', 'numero_orden', 'solicitante', 'empresa',
-            'fecha_completado', 'fecha_creacion', 'fecha_actualizacion'
+            'fecha_completado', 'fecha_creacion', 'fecha_actualizacion',
+            'factura_enviada', 'estado'
         ]
 
 
@@ -60,8 +83,8 @@ class CrearPedidoSerializer(serializers.Serializer):
         except Solicitud.DoesNotExist:
             raise serializers.ValidationError("Solicitud no encontrada o inactiva.")
 
-        if solicitud.estado_solicitud != 'APROBADA':
-            raise serializers.ValidationError("Solo se pueden convertir solicitudes aprobadas en pedidos.")
+        if solicitud.estado_solicitud != 'LISTO_PARA_COMPRA':
+            raise serializers.ValidationError("Solo se pueden convertir solicitudes listas para compra en pedidos.")
 
         if solicitud.pedidos.filter(estado=True).exists():
             raise serializers.ValidationError("Esta solicitud ya tiene un pedido activo asociado.")
@@ -71,7 +94,7 @@ class CrearPedidoSerializer(serializers.Serializer):
 
 class ActualizarEstadoPedidoSerializer(serializers.Serializer):
     estado_pedido = serializers.ChoiceField(
-        choices=['PENDIENTE_PAGO', 'PAGO_CONFIRMADO', 'EN_DESPACHO', 'COMPLETADO', 'CANCELADO'],
+        choices=Pedido.Estados.choices,
         required=True
     )
     observaciones = serializers.CharField(
@@ -81,7 +104,7 @@ class ActualizarEstadoPedidoSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-        if attrs.get('estado_pedido') == 'CANCELADO' and not attrs.get('observaciones'):
+        if attrs.get('estado_pedido') == Pedido.Estados.CANCELADO and not attrs.get('observaciones'):
             raise serializers.ValidationError({
                 "observaciones": "Debe proporcionar observaciones al cancelar un pedido."
             })
@@ -121,3 +144,13 @@ class EditarPedidoSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+class AprobarPagoDiferidoSerializer(serializers.Serializer):
+    aprobado = serializers.BooleanField(required=True)
+    observaciones = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Observaciones sobre la decisión de aprobar o rechazar"
+    )

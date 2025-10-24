@@ -22,6 +22,17 @@ class DetalleSolicitudCreateSerializer(DetalleBaseSerializer):
     class Meta:
         model = DetalleSolicitud
         fields = ['producto', 'cantidad']
+        extra_kwargs = {
+            'cantidad': {
+                'required': True,
+                'min_value': 1
+            }
+        }
+
+    def validate_cantidad(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor a 0.")
+        return value
 
 
 class SolicitudSerializer(serializers.ModelSerializer):
@@ -51,7 +62,7 @@ class SolicitudSerializer(serializers.ModelSerializer):
             'id', 'solicitante', 'estado_solicitud',
             'validador_financiero', 'fecha_validacion_financiero', 'observaciones_financiero',
             'validador_abastecimiento', 'fecha_validacion_abastecimiento', 'observaciones_abastecimiento',
-            'fecha_creacion', 'fecha_actualizacion'
+            'fecha_creacion', 'fecha_actualizacion', 'estado'
         ]
 
 
@@ -61,6 +72,44 @@ class CrearSolicitudSerializer(serializers.ModelSerializer):
     class Meta:
         model = Solicitud
         fields = ['empresa', 'area', 'observaciones', 'detalles']
+
+    def validate(self, attrs):
+        usuario = self.context['request'].user
+        if not usuario.is_superuser and not usuario.empresa:
+            raise serializers.ValidationError({
+                "empresa": "Su usuario no tiene empresa asignada. Contacte al administrador."
+            })
+
+        if attrs.get('area') and attrs.get('empresa'):
+            if attrs['area'].empresa != attrs['empresa']:
+                raise serializers.ValidationError({
+                    "area": "El área debe pertenecer a la empresa seleccionada."
+                })
+
+        return attrs
+
+    def validate_empresa(self, value):
+        tiene_validador_financiero = value.usuarios.filter(
+            roles__permisos__codigo='solicitudes.validar_financiero',
+            is_active=True
+        ).exists()
+
+        if not tiene_validador_financiero:
+            raise serializers.ValidationError(
+                "La empresa no tiene validadores financieros activos. No se pueden crear solicitudes."
+            )
+
+        tiene_validador_abastecimiento = value.usuarios.filter(
+            roles__permisos__codigo='solicitudes.validar_abastecimiento',
+            is_active=True
+        ).exists()
+
+        if not tiene_validador_abastecimiento:
+            raise serializers.ValidationError(
+                "La empresa no tiene validadores de abastecimiento activos. No se pueden crear solicitudes."
+            )
+
+        return value
 
     def validate_detalles(self, value):
         if not value:
@@ -107,3 +156,23 @@ class ValidarSolicitudSerializer(serializers.Serializer):
                 "observaciones": "Debe proporcionar observaciones al rechazar una solicitud."
             })
         return attrs
+
+
+class ModificarSolicitudAbastecimientoSerializer(serializers.Serializer):
+    """Serializer para modificar una solicitud por el validador de abastecimiento."""
+    detalles_modificados = DetalleSolicitudCreateSerializer(many=True, required=True)
+    observaciones = serializers.CharField(
+        required=True,
+        max_length=500,
+        help_text="Motivo de la modificación"
+    )
+
+    def validate_detalles_modificados(self, value):
+        if not value:
+            raise serializers.ValidationError("Debe incluir al menos un detalle modificado.")
+
+        productos_ids = [detalle['producto'].id for detalle in value]
+        if len(productos_ids) != len(set(productos_ids)):
+            raise serializers.ValidationError("No se pueden repetir productos en la solicitud.")
+
+        return value

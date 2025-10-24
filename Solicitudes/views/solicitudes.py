@@ -7,91 +7,92 @@ from Solicitudes.serializers import (
     SolicitudSerializer,
     CrearSolicitudSerializer
 )
+from Usuarios.models import Grupos
 from LAMBDA_gestion_pedidos_API.utils import (
     FiltradoEmpresaMixin,
     PermisosPorEmpresaMixin,
+    ObjetoDetailMixin,
+    SerializerValidationMixin,
+    PaginacionMixin,
     manejar_errores_db,
-    requiere_admin_empresa,
-    requiere_solicitante
+    requiere_permisos
 )
-from LAMBDA_gestion_pedidos_API.utils.decoradores import requiere_grupos
 
 
-class SolicitudListCreateAPIView(FiltradoEmpresaMixin, APIView):
+class SolicitudListCreateAPIView(FiltradoEmpresaMixin, SerializerValidationMixin, PaginacionMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         usuario = request.user
 
-        if usuario.is_superuser or usuario.groups.filter(name='Admin Sistema').exists():
-            solicitudes = Solicitud.objects.all()
-        elif usuario.groups.filter(name__in=['Admin Empresa', 'Validador Financiero', 'Validador Abastecimiento']).exists():
-            solicitudes = self.filtrar_por_empresa(request, Solicitud.objects.all())
+        if usuario.is_superuser or usuario.roles.filter(nombre=Grupos.ADMIN_SISTEMA).exists():
+            solicitudes = Solicitud.objects.filter(estado=True)
+        elif usuario.roles.filter(nombre__in=[Grupos.ADMIN_EMPRESA, Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]).exists():
+            solicitudes = self.filtrar_por_empresa(request, Solicitud.objects.filter(estado=True))
         else:
-            solicitudes = Solicitud.objects.filter(solicitante=usuario)
+            solicitudes = Solicitud.objects.filter(solicitante=usuario, estado=True)
 
-        serializer = SolicitudSerializer(solicitudes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        solicitudes = solicitudes.order_by('-fecha_creacion')
 
-    @requiere_grupos('Solicitante', 'Admin Empresa', 'Admin Sistema')
+        solicitudes_paginadas = self.paginar_queryset(solicitudes, request)
+        serializer = SolicitudSerializer(solicitudes_paginadas, many=True)
+        return self.get_paginated_response(serializer)
+
+    @requiere_permisos('solicitudes.crear')
     @manejar_errores_db
     def post(self, request):
-        """Crea una nueva solicitud"""
         serializer = CrearSolicitudSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            solicitud = serializer.save()
-            return Response({
-                'mensaje': 'Solicitud creada exitosamente',
-                'solicitud': SolicitudSerializer(solicitud).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        solicitud = serializer.save()
+        return Response({
+            'mensaje': 'Solicitud creada exitosamente',
+            'solicitud': SolicitudSerializer(solicitud).data
+        }, status=status.HTTP_201_CREATED)
 
 
-class SolicitudDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, APIView):
+class SolicitudDetailAPIView(FiltradoEmpresaMixin, PermisosPorEmpresaMixin, ObjetoDetailMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     @manejar_errores_db
     def get(self, request, pk):
-        """Obtiene el detalle de una solicitud específica"""
-        try:
-            solicitud = Solicitud.objects.get(pk=pk)
+        solicitud, error = self.obtener_objeto_o_404(Solicitud, pk)
+        if error:
+            return error
 
-            puede_ver, mensaje_error = self.puede_ver_recurso(
-                request.user,
-                solicitud,
-                grupos_adicionales=['Validador Financiero', 'Validador Abastecimiento']
-            )
-            if not puede_ver:
-                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+        puede_ver, mensaje_error = self.puede_ver_recurso(
+            request.user,
+            solicitud,
+            roles_adicionales=[Grupos.VALIDADOR_FINANCIERO, Grupos.VALIDADOR_ABASTECIMIENTO]
+        )
+        if not puede_ver:
+            return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
 
-            serializer = SolicitudSerializer(solicitud)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = SolicitudSerializer(solicitud)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Solicitud.DoesNotExist:
-            return Response({'error': 'Solicitud no encontrada'}, status=status.HTTP_404_NOT_FOUND)
-
-    @requiere_admin_empresa
+    @requiere_permisos('solicitudes.eliminar')
     @manejar_errores_db
     def delete(self, request, pk):
-        try:
-            solicitud = Solicitud.objects.get(pk=pk)
+        solicitud, error = self.obtener_objeto_o_404(Solicitud, pk)
+        if error:
+            return error
 
-            if solicitud.estado_solicitud != 'PENDIENTE_ABASTECIMIENTO':
-                return Response(
-                    {'error': 'Solo se pueden eliminar solicitudes en estado PENDIENTE_ABASTECIMIENTO'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            puede_eliminar, mensaje_error = self.puede_eliminar_recurso(request.user, solicitud)
-            if not puede_eliminar:
-                return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
-
-            solicitud.soft_delete()
-
+        if solicitud.estado_solicitud != Solicitud.Estados.PENDIENTE_ABASTECIMIENTO:
             return Response(
-                {'mensaje': 'Solicitud eliminada exitosamente'},
-                status=status.HTTP_200_OK
+                {'error': 'Solo se pueden eliminar solicitudes en estado PENDIENTE_ABASTECIMIENTO'},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        except Solicitud.DoesNotExist:
-            return Response({'error': 'Solicitud no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        puede_eliminar, mensaje_error = self.puede_eliminar_recurso(request.user, solicitud)
+        if not puede_eliminar:
+            return Response({'error': mensaje_error}, status=status.HTTP_403_FORBIDDEN)
+
+        solicitud.soft_delete()
+
+        return Response(
+            {'mensaje': 'Solicitud eliminada exitosamente'},
+            status=status.HTTP_200_OK
+        )

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from cloudinary.forms import CloudinaryFileField
 from .models import Categoria, Producto
 
 class CategoriaSerializer(serializers.ModelSerializer):
@@ -17,24 +18,36 @@ class ProductoSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     stock_bajo = serializers.BooleanField(read_only=True)
     stock_reservado = serializers.IntegerField(read_only=True)
+    imagen_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Producto
         fields = [
-            'id', 'nombre', 'descripcion', 'sku', 'precio', 'categoria', 'categoria_nombre',
-            'stock_disponible', 'umbral_minimo', 'stock_bajo', 'stock_reservado',
-            'estado', 'fecha_creacion', 'fecha_actualizacion'
+            'id', 'nombre', 'descripcion', 'imagen', 'imagen_url', 'sku', 'precio',
+            'categoria', 'categoria_nombre', 'stock_disponible', 'umbral_minimo',
+            'stock_bajo', 'stock_reservado', 'estado', 'fecha_creacion', 'fecha_actualizacion'
         ]
-        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion', 'stock_bajo', 'stock_reservado']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion', 'stock_bajo', 'stock_reservado', 'imagen_url']
+
+    def get_imagen_url(self, obj):
+        if obj.imagen:
+            return obj.imagen.url
+        return None
 
 
 class ProductoListSerializer(serializers.ModelSerializer):
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     stock_bajo = serializers.BooleanField(read_only=True)
+    imagen_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Producto
-        fields = ['id', 'sku', 'nombre', 'precio', 'categoria_nombre', 'stock_disponible', 'stock_bajo', 'estado']
+        fields = ['id', 'sku', 'nombre', 'imagen_url', 'precio', 'categoria_nombre', 'stock_disponible', 'stock_bajo', 'estado']
+
+    def get_imagen_url(self, obj):
+        if obj.imagen:
+            return obj.imagen.url
+        return None
 
 
 class ProductoCreateUpdateSerializer(serializers.ModelSerializer):
@@ -43,7 +56,7 @@ class ProductoCreateUpdateSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Producto
-        fields = ['nombre', 'descripcion', 'sku', 'precio', 'categoria', 'stock_disponible', 'umbral_minimo', 'estado']
+        fields = ['nombre', 'descripcion', 'imagen', 'sku', 'precio', 'categoria', 'stock_disponible', 'umbral_minimo']
 
     def validate_sku(self, value):
         queryset = Producto.objects.filter(sku=value)

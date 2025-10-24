@@ -1,7 +1,5 @@
 import secrets
 from datetime import timedelta
-from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -10,30 +8,28 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from Usuarios.models import Usuario
 from Usuarios.serializers import (
-    UsuarioSerializer, RegistroUsuarioSerializer, LoginSerializer,
+    UsuarioSerializer, LoginSerializer,
     CambioPasswordSerializer, RecuperarPasswordSerializer, ResetPasswordSerializer
 )
+from Usuarios.services.email_service import EmailService
+from LAMBDA_gestion_pedidos_API.utils import ObjetoDetailMixin, SerializerValidationMixin
 
-
-# RegistroUsuarioAPIView ELIMINADA
-# Solo los administradores pueden crear usuarios mediante /api/usuarios
-# Los usuarios nuevos activan su cuenta mediante /api/auth/activar_cuenta con el token recibido por email
-
-
-class LoginAPIView(APIView):
+class LoginAPIView(SerializerValidationMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            usuario = serializer.validated_data['usuario']
-            refresh = RefreshToken.for_user(usuario)
-            return Response({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'usuario': UsuarioSerializer(usuario).data
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        usuario = serializer.validated_data['usuario']
+        refresh = RefreshToken.for_user(usuario)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'usuario': UsuarioSerializer(usuario).data
+        }, status=status.HTTP_200_OK)
 
 
 class LogoutAPIView(APIView):
@@ -50,7 +46,7 @@ class LogoutAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PerfilUsuarioAPIView(APIView):
+class PerfilUsuarioAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -59,79 +55,80 @@ class PerfilUsuarioAPIView(APIView):
 
     def put(self, request):
         serializer = UsuarioSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'mensaje': 'Perfil actualizado exitosamente',
-                'usuario': serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        serializer.save()
+        return Response({
+            'mensaje': 'Perfil actualizado exitosamente',
+            'usuario': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
-class CambioPasswordAPIView(APIView):
+class CambioPasswordAPIView(SerializerValidationMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = CambioPasswordSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'mensaje': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
+
+        serializer.save()
+        return Response({'mensaje': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
 
 
-class RecuperarPasswordAPIView(APIView):
+class RecuperarPasswordAPIView(SerializerValidationMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = RecuperarPasswordSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data['email']
-            usuario = Usuario.objects.get(email=email)
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
-            token = secrets.token_urlsafe(32)
-            usuario.token_activacion = token
-            usuario.token_expiracion = timezone.now() + timedelta(hours=24)
-            usuario.save()
+        email = serializer.validated_data['email']
+        usuario = Usuario.objects.get(email=email)
 
-            reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-            send_mail(
-                'Recuperación de contraseña - Lambda Commerce',
-                f'Hola {usuario.nombre},\n\nPara restablecer tu contraseña, haz clic en el siguiente enlace:\n{reset_url}\n\nEste enlace expira en 24 horas.',
-                settings.DEFAULT_FROM_EMAIL,
-                [usuario.email],
-                fail_silently=False,
-            )
+        token = secrets.token_urlsafe(32)
+        usuario.token_activacion = token
+        usuario.token_expiracion = timezone.now() + timedelta(hours=24)
+        usuario.save()
 
-            return Response({'mensaje': 'Se ha enviado un correo con instrucciones para recuperar tu contraseña'}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        EmailService.enviar_email_recuperacion_password(usuario, token)
+
+        return Response({'mensaje': 'Se ha enviado un correo con instrucciones para recuperar tu contraseña'}, status=status.HTTP_200_OK)
 
 
-class ResetPasswordAPIView(APIView):
+class ResetPasswordAPIView(ObjetoDetailMixin, SerializerValidationMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
-        if serializer.is_valid():
-            token = serializer.validated_data['token']
+        es_valido, error = self.validar_serializer(serializer)
+        if not es_valido:
+            return error
 
-            try:
-                usuario = Usuario.objects.get(token_activacion=token)
+        token = serializer.validated_data['token']
 
-                if usuario.token_expiracion < timezone.now():
-                    return Response({'error': 'El token ha expirado'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            usuario = Usuario.objects.get(token_activacion=token)
+        except Usuario.DoesNotExist:
+            return Response({'error': 'Token inválido'}, status=status.HTTP_400_BAD_REQUEST)
 
-                usuario.set_password(serializer.validated_data['password_nuevo'])
-                usuario.token_activacion = None
-                usuario.token_expiracion = None
-                usuario.save()
+        if usuario.token_expiracion < timezone.now():
+            return Response({'error': 'El token ha expirado'}, status=status.HTTP_400_BAD_REQUEST)
 
-                return Response({'mensaje': 'Contraseña restablecida exitosamente'}, status=status.HTTP_200_OK)
-            except Usuario.DoesNotExist:
-                return Response({'error': 'Token inválido'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        usuario.set_password(serializer.validated_data['password_nuevo'])
+        usuario.token_activacion = None
+        usuario.token_expiracion = None
+        usuario.save()
+
+        return Response({'mensaje': 'Contraseña restablecida exitosamente'}, status=status.HTTP_200_OK)
 
 
-class ActivarUsuarioAPIView(APIView):
+class ActivarUsuarioAPIView(ObjetoDetailMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -143,19 +140,19 @@ class ActivarUsuarioAPIView(APIView):
 
         try:
             usuario = Usuario.objects.get(token_activacion=token)
-
-            if usuario.token_expiracion < timezone.now():
-                return Response({'error': 'El token ha expirado'}, status=status.HTTP_400_BAD_REQUEST)
-
-            usuario.set_password(password)
-            usuario.is_active = True
-            usuario.token_activacion = None
-            usuario.token_expiracion = None
-            usuario.save()
-
-            return Response({
-                'mensaje': 'Usuario activado exitosamente',
-                'usuario': UsuarioSerializer(usuario).data
-            }, status=status.HTTP_200_OK)
         except Usuario.DoesNotExist:
             return Response({'error': 'Token inválido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if usuario.token_expiracion < timezone.now():
+            return Response({'error': 'El token ha expirado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario.set_password(password)
+        usuario.is_active = True
+        usuario.token_activacion = None
+        usuario.token_expiracion = None
+        usuario.save()
+
+        return Response({
+            'mensaje': 'Usuario activado exitosamente',
+            'usuario': UsuarioSerializer(usuario).data
+        }, status=status.HTTP_200_OK)

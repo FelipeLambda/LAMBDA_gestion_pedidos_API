@@ -1,0 +1,15 @@
+Estimado/a {{ solicitante.nombre }},
+
+Le enviamos adjunta la factura correspondiente a su pedido {{ pedido.numero_orden }}.
+
+Detalles del pedido:
+- Número de orden: {{ pedido.numero_orden }}
+- Empresa: {{ empresa.nombre }}
+- Total: ${{ pedido.total }}
+- Estado: {{ pedido.get_estado_pedido_display }}
+
+Gracias por su compra.
+
+Atentamente,
+Lambda Commerce
+Sistema de Gestión de Pedidos
