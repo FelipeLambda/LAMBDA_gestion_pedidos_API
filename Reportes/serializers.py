@@ -1,4 +1,7 @@
 from rest_framework import serializers
+from Solicitudes.models import Solicitud
+from Pedidos.models import Pedido
+from Inventario.models import MovimientoInventario
 
 
 class FiltroReporteSerializer(serializers.Serializer):
@@ -25,7 +28,7 @@ class FiltroReporteSerializer(serializers.Serializer):
 
 class FiltroReporteSolicitudesSerializer(FiltroReporteSerializer):
     estado = serializers.ChoiceField(
-        choices=['PENDIENTE_ABASTECIMIENTO', 'PENDIENTE_FINANZAS', 'LISTO_PARA_COMPRA', 'RECHAZADA'],
+        choices=Solicitud.Estados.choices,
         required=False,
         help_text='Estado de la solicitud'
     )
@@ -34,7 +37,7 @@ class FiltroReporteSolicitudesSerializer(FiltroReporteSerializer):
 
 class FiltroReportePedidosSerializer(FiltroReporteSerializer):
     estado = serializers.ChoiceField(
-        choices=['PENDIENTE_PAGO', 'PAGO_CONFIRMADO', 'EN_DESPACHO', 'COMPLETADO', 'CANCELADO'],
+        choices=Pedido.Estados.choices,
         required=False,
         help_text='Estado del pedido'
     )

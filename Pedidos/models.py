@@ -28,6 +28,8 @@ class PedidoManager(models.Manager):
 
 class Pedido(BaseModel):
     class Estados(models.TextChoices):
+        PENDIENTE_APROBACION_PAGO_DIFERIDO = 'PENDIENTE_APROBACION_PAGO_DIFERIDO', 'Pendiente Aprobación Pago Diferido'
+        RECHAZADO_PAGO_DIFERIDO = 'RECHAZADO_PAGO_DIFERIDO', 'Pago Diferido Rechazado'
         PENDIENTE_PAGO = 'PENDIENTE_PAGO', 'Pendiente de Pago'
         PAGO_CONFIRMADO = 'PAGO_CONFIRMADO', 'Pago Confirmado'
         EN_DESPACHO = 'EN_DESPACHO', 'En Despacho'
@@ -57,7 +59,7 @@ class Pedido(BaseModel):
         verbose_name='Solicitante'
     )
     estado_pedido = models.CharField(
-        max_length=30,
+        max_length=50,
         choices=Estados.choices,
         default=Estados.PENDIENTE_PAGO,
         verbose_name='Estado del pedido'

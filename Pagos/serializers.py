@@ -27,7 +27,7 @@ class RegistrarPagoSerializer(serializers.Serializer):
     pedido_id = serializers.IntegerField(required=True)
     monto = serializers.DecimalField(max_digits=12, decimal_places=2, required=True, min_value=0.01)
     metodo_pago = serializers.ChoiceField(
-        choices=['TRANSFERENCIA', 'TARJETA', 'EFECTIVO', 'CHEQUE', 'OTRO'],
+        choices=Pago.MetodosPago.choices,
         required=True
     )
     referencia_pago = serializers.CharField(required=False, allow_blank=True, max_length=100)
@@ -40,7 +40,7 @@ class RegistrarPagoSerializer(serializers.Serializer):
         except Pedido.DoesNotExist:
             raise serializers.ValidationError("Pedido no encontrado o inactivo.")
 
-        if pedido.estado_pedido not in ['PENDIENTE_PAGO', 'PAGO_CONFIRMADO']:
+        if pedido.estado_pedido not in [Pedido.Estados.PENDIENTE_PAGO, Pedido.Estados.PAGO_CONFIRMADO]:
             raise serializers.ValidationError(
                 "Solo se pueden registrar pagos en pedidos PENDIENTE_PAGO o PAGO_CONFIRMADO."
             )
@@ -70,7 +70,7 @@ class RegistrarPagoSerializer(serializers.Serializer):
 
 class ValidarPagoSerializer(serializers.Serializer):
     estado_pago = serializers.ChoiceField(
-        choices=['COMPLETADO', 'RECHAZADO'],
+        choices=[Pago.Estados.COMPLETADO, Pago.Estados.RECHAZADO],
         required=True
     )
     observaciones = serializers.CharField(
@@ -80,7 +80,7 @@ class ValidarPagoSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-        if attrs.get('estado_pago') == 'RECHAZADO' and not attrs.get('observaciones'):
+        if attrs.get('estado_pago') == Pago.Estados.RECHAZADO and not attrs.get('observaciones'):
             raise serializers.ValidationError({
                 "observaciones": "Debe proporcionar observaciones al rechazar un pago."
             })

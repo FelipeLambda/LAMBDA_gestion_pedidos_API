@@ -142,12 +142,24 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
 
         numero_orden = f"PED-{solicitud.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
 
+        tipo_pago = Pedido.TiposPago.DIFERIDO if solicitud.empresa.pagar_despues else Pedido.TiposPago.INMEDIATO
+
+        if tipo_pago == Pedido.TiposPago.DIFERIDO:
+            estado_inicial = Pedido.Estados.PENDIENTE_APROBACION_PAGO_DIFERIDO
+            fecha_limite_pago = timezone.now() + timedelta(days=solicitud.empresa.periodo_pago_dias)
+        else:
+            estado_inicial = Pedido.Estados.PENDIENTE_PAGO
+            fecha_limite_pago = None
+
         pedido = Pedido.objects.create(
             solicitud=solicitud,
             empresa=solicitud.empresa,
             solicitante=solicitud.solicitante,
             numero_orden=numero_orden,
-            observaciones=observaciones
+            observaciones=observaciones,
+            tipo_pago=tipo_pago,
+            estado_pedido=estado_inicial,
+            fecha_limite_pago=fecha_limite_pago
         )
 
         for detalle_solicitud in detalles_solicitud:
@@ -158,17 +170,19 @@ class CrearPedidoDesdeSolicitudAPIView(ObjetoDetailMixin, SerializerValidationMi
                 precio_unitario=detalle_solicitud.precio_unitario
             )
 
-            MovimientoInventario.objects.create(
-                tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
-                producto=detalle_solicitud.producto,
+            detalle_solicitud.producto.reservar_stock(
                 cantidad=detalle_solicitud.cantidad,
-                usuario_responsable=request.user,
-                pedido=pedido,
-                observaciones=f'Reserva automática para pedido {pedido.numero_orden}'
+                usuario=request.user,
+                referencia=f'Pedido {pedido.numero_orden}'
             )
 
+        if tipo_pago == Pedido.TiposPago.DIFERIDO:
+            mensaje = f'Pedido creado exitosamente. Stock reservado. Requiere aprobación de pago diferido por LAMBDA (Admin Sistema).'
+        else:
+            mensaje = f'Pedido creado exitosamente. Stock reservado. Pendiente de pago.'
+
         return Response({
-            'mensaje': 'Pedido creado exitosamente. Stock reservado.',
+            'mensaje': mensaje,
             'pedido': PedidoSerializer(pedido).data
         }, status=status.HTTP_201_CREATED)
 

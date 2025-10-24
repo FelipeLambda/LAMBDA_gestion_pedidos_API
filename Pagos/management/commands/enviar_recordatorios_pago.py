@@ -26,7 +26,8 @@ class Command(BaseCommand):
         pedidos = Pedido.objects.filter(
             estado=True,
             tipo_pago=Pedido.TiposPago.DIFERIDO,
-            estado_pedido=Pedido.Estados.PENDIENTE_PAGO,
+            estado_pedido=Pedido.Estados.PAGO_CONFIRMADO,
+            pago_diferido_aprobado=True,
             fecha_limite_pago__date=fecha_alerta.date()
         ).select_related('empresa', 'solicitante')
 
@@ -73,7 +74,8 @@ class Command(BaseCommand):
         pedidos_vencidos = Pedido.objects.filter(
             estado=True,
             tipo_pago=Pedido.TiposPago.DIFERIDO,
-            estado_pedido=Pedido.Estados.PENDIENTE_PAGO,
+            estado_pedido=Pedido.Estados.PAGO_CONFIRMADO,
+            pago_diferido_aprobado=True,
             fecha_limite_pago__lt=hoy
         ).select_related('empresa', 'solicitante')
 

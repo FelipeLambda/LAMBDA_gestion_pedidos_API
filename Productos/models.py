@@ -75,3 +75,51 @@ class Producto(BaseModel):
 
     def tiene_stock_suficiente(self, cantidad):
         return self.stock_disponible_real >= cantidad
+
+    def reservar_stock(self, cantidad, usuario=None, referencia=None):
+        """Reserva stock del producto creando un movimiento de inventario"""
+        from Inventario.models import MovimientoInventario
+
+        if not self.tiene_stock_suficiente(cantidad):
+            raise ValidationError(f'Stock insuficiente para {self.nombre}. Disponible: {self.stock_disponible_real}, Solicitado: {cantidad}')
+
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.RESERVA,
+            producto=self,
+            cantidad=cantidad,
+            usuario=usuario,
+            observaciones=f'Reserva de stock - {referencia}' if referencia else 'Reserva de stock'
+        )
+
+        return True
+
+    def liberar_stock(self, cantidad, usuario=None, referencia=None):
+        """Libera stock previamente reservado"""
+        from Inventario.models import MovimientoInventario
+
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.LIBERACION_RESERVA,
+            producto=self,
+            cantidad=cantidad,
+            usuario=usuario,
+            observaciones=f'Liberación de stock - {referencia}' if referencia else 'Liberación de stock'
+        )
+
+        return True
+
+    def descontar_stock(self, cantidad, usuario=None, referencia=None):
+        """Descuenta stock del inventario (venta confirmada)"""
+        from Inventario.models import MovimientoInventario
+
+        if self.stock_disponible < cantidad:
+            raise ValidationError(f'Stock insuficiente para {self.nombre}. Disponible: {self.stock_disponible}, Solicitado: {cantidad}')
+
+        MovimientoInventario.objects.create(
+            tipo_movimiento=MovimientoInventario.TiposMovimiento.VENTA,
+            producto=self,
+            cantidad=cantidad,
+            usuario=usuario,
+            observaciones=f'Venta - {referencia}' if referencia else 'Venta'
+        )
+
+        return True

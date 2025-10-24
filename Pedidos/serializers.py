@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Pedido, DetallePedido
 from Solicitudes.models import Solicitud
+from Pagos.models import Pago
 from Base.serializers import DetalleBaseSerializer
 
 
@@ -82,8 +83,8 @@ class CrearPedidoSerializer(serializers.Serializer):
         except Solicitud.DoesNotExist:
             raise serializers.ValidationError("Solicitud no encontrada o inactiva.")
 
-        if solicitud.estado_solicitud != 'APROBADA':
-            raise serializers.ValidationError("Solo se pueden convertir solicitudes aprobadas en pedidos.")
+        if solicitud.estado_solicitud != 'LISTO_PARA_COMPRA':
+            raise serializers.ValidationError("Solo se pueden convertir solicitudes listas para compra en pedidos.")
 
         if solicitud.pedidos.filter(estado=True).exists():
             raise serializers.ValidationError("Esta solicitud ya tiene un pedido activo asociado.")
@@ -93,7 +94,7 @@ class CrearPedidoSerializer(serializers.Serializer):
 
 class ActualizarEstadoPedidoSerializer(serializers.Serializer):
     estado_pedido = serializers.ChoiceField(
-        choices=['PENDIENTE_PAGO', 'PAGO_CONFIRMADO', 'EN_DESPACHO', 'COMPLETADO', 'CANCELADO'],
+        choices=Pedido.Estados.choices,
         required=True
     )
     observaciones = serializers.CharField(
@@ -103,7 +104,7 @@ class ActualizarEstadoPedidoSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-        if attrs.get('estado_pedido') == 'CANCELADO' and not attrs.get('observaciones'):
+        if attrs.get('estado_pedido') == Pedido.Estados.CANCELADO and not attrs.get('observaciones'):
             raise serializers.ValidationError({
                 "observaciones": "Debe proporcionar observaciones al cancelar un pedido."
             })
